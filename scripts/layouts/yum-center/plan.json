@@ -2,7 +2,7 @@
   "note": "KFC Yum! Center section plan for spec 038 (R18, FR-033). Read README.md first: what is traced, what is our estimate, and that no ticket seller data is used. Map units are about 1 foot; x grows east, y grows south; bowl degrees run clockwise from the middle of the east end.",
   "center": [250, 210],
   "size": { "width": 500, "height": 420 },
-  "bowl": { "seats": 22090, "halfLength": 85, "halfWidth": 45, "exponent": 3, "samples": 7200 },
+  "bowl": { "seats": 22090, "halfLength": 95, "halfWidth": 52, "exponent": 2, "samples": 7200 },
   "limits": { "sectionGap": 1.5, "minSeatPitch": 1.5, "maxSeatPitch": 3 },
   "rings": [
     {
@@ -133,10 +133,10 @@
       "floor": {
         "kind": "END_STAGE",
         "outline": [
-          [-97, -30],
-          [-66, -30],
-          [-66, 30],
-          [-97, 30]
+          [-82, -24],
+          [-58, -24],
+          [-58, 24],
+          [-82, 24]
         ]
       },
       "levels": [
@@ -152,26 +152,26 @@
         {
           "name": "Floor 1",
           "level": "floor",
-          "center": [-42.75, 25],
+          "center": [-38.5, 25],
           "facing": "W",
           "width": 23,
-          "rows": 14
+          "rows": 12
         },
         {
           "name": "Floor 2",
           "level": "floor",
-          "center": [-42.75, 0],
+          "center": [-38.5, 0],
           "facing": "W",
           "width": 23,
-          "rows": 14
+          "rows": 12
         },
         {
           "name": "Floor 3",
           "level": "floor",
-          "center": [-42.75, -25],
+          "center": [-38.5, -25],
           "facing": "W",
           "width": 23,
-          "rows": 14
+          "rows": 12
         },
         {
           "name": "Floor 4",

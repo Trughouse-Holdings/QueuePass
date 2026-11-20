@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   DEFAULT_TIME_ZONE,
@@ -13,16 +13,10 @@ import {
 import { venueZone } from '../format';
 import { listEvents } from '../api/events';
 import { createLocation, getLocation, updateLocation } from '../api/locations';
-import { createVenueLayout, listVenueLayouts } from '../api/layouts';
+import { importVenueLayout, listVenueLayouts } from '../api/layouts';
 import { ApiError } from '../api/client';
 import { ErrorBanner } from '../components/ErrorBanner';
-import {
-  SectionLines,
-  toLinesInput,
-  totalSeats,
-  type LevelLine,
-  type SectionLine,
-} from '../components/SectionLines';
+import { ImportProblems, readLayoutFile, type ImportError } from '../components/LayoutsCard';
 import type { NoticeState } from '../hooks/use-delete';
 
 interface Address {
@@ -76,12 +70,7 @@ const ZONE_CHANGE_NOTE =
 
 const ZONE_REQUIRED = "Choose the venue's time zone.";
 
-/**
- * Spec 038 (T019): a seated venue's first layout, made from its section lines on the New venue
- * form, is named as the carry-over names a venue's layout (R16), with one level to start.
- */
-const FIRST_LAYOUT = 'Standard';
-const FIRST_LEVEL: LevelLine = { name: 'Standard', color: 'violet' };
+const LAYOUT_FILE_REQUIRED = 'Choose a layout file: every new venue starts with one.';
 
 /** Spec 013 FR-008's "same address", on the form's side: ignoring case and extra spaces. */
 function sameAsStored(a: Address, v: Location | null): boolean {
@@ -110,11 +99,12 @@ export function LocationForm(): React.ReactElement {
   // Spec 038 FR-009: a venue with layouts takes its capacity from the largest; null without.
   const [largest, setLargest] = useState<number | null>(null);
   const setByLayout = largest !== null;
-  // Spec 008 US5: a new venue is seated (sections, capacity calculated) or general admission.
-  const [kind, setKind] = useState<'general' | 'seated'>('general');
-  const [lines, setLines] = useState<SectionLine[]>([]);
-  // Spec 038 FR-005: the seated venue's first layout has price levels; one to start with.
-  const [levels, setLevels] = useState<LevelLine[]>([FIRST_LEVEL]);
+  // 2026-11-19: a new venue is made from a layout file (the only way to add a layout); its
+  // capacity is the file's seats. Section lines and general-admission-only venues are gone.
+  const [layoutFile, setLayoutFile] = useState<File | null>(null);
+  const [layoutFileError, setLayoutFileError] = useState<ImportError | null>(null);
+  const layoutFileId = useId();
+  const layoutProblemsId = useId();
   const [layoutRefused, setLayoutRefused] = useState<{ venue: Location; error: ApiError } | null>(
     null,
   );
@@ -179,6 +169,10 @@ export function LocationForm(): React.ReactElement {
     zoneChoice === storedZone &&
     loaded.timeZoneSource !== 'ADMIN';
 
+  /** A required field with no valid value yet is outlined in red at once. */
+  const needed = (bad: boolean) => (bad ? { className: 'input--needed' } : {});
+  const wholeAtLeastOne = (s: string) => /^\d+$/.test(s.trim()) && Number(s) >= 1;
+
   async function save(): Promise<void> {
     setError(null);
     setLayoutRefused(null);
@@ -188,10 +182,21 @@ export function LocationForm(): React.ReactElement {
     setProblems(found);
     const missingZone = !isEdit && !zoneChoice;
     setZoneProblem(missingZone ? ZONE_REQUIRED : null);
-    if (found.length > 0 || missingZone) return;
+    // The layout file is read before anything is saved, so a file that isn't one saves nothing.
+    let layout: { file: Record<string, unknown>; seats: number } | null = null;
+    let fileProblem: string | null = null;
+    if (!isEdit) {
+      if (!layoutFile) fileProblem = LAYOUT_FILE_REQUIRED;
+      else {
+        const read = await readLayoutFile(layoutFile);
+        if ('problem' in read) fileProblem = read.problem;
+        else layout = read;
+      }
+    }
+    setLayoutFileError(fileProblem ? { kind: 'local', message: fileProblem } : null);
+    if (found.length > 0 || missingZone || fileProblem) return;
 
     setBusy(true);
-    const seated = !isEdit && kind === 'seated';
     const parts = {
       street: address.street,
       city: address.city,
@@ -206,8 +211,8 @@ export function LocationForm(): React.ReactElement {
     // when the admin picked another one.
     const zonePart =
       zoneChoice && (sendAddress || zoneChoice !== storedZone) ? { timeZone: zoneChoice } : {};
-    // Spec 008 R8: the contract needs a capacity; the layout saved next sets it for good.
-    const capacity = seated ? totalSeats(lines) : Number(seatingCapacity);
+    // Spec 008 R8: the contract needs a capacity; the layout imported next sets it for good.
+    const capacity = layout ? Math.max(1, layout.seats) : Number(seatingCapacity);
 
     try {
       let venue: Location;
@@ -221,9 +226,9 @@ export function LocationForm(): React.ReactElement {
         );
       } else {
         venue = await createLocation({ name, ...parts, ...zonePart, seatingCapacity: capacity });
-        if (seated) {
+        if (layout) {
           try {
-            await createVenueLayout(venue.id, toLinesInput(FIRST_LAYOUT, levels, lines));
+            await importVenueLayout(venue.id, { file: layout.file as never });
           } catch (err) {
             // The venue exists; only its layout was refused. Say so, and where to add it.
             setLayoutRefused({ venue, error: err as ApiError });
@@ -326,6 +331,7 @@ export function LocationForm(): React.ReactElement {
               value={name}
               placeholder="KFC Yum! Center"
               onChange={(e) => setName(e.target.value)}
+              {...needed(!name.trim())}
             />
           </div>
 
@@ -346,6 +352,7 @@ export function LocationForm(): React.ReactElement {
               value={address.street}
               placeholder="430 W Vine St"
               onChange={(e) => changeAddress('street', e.target.value)}
+              {...needed(sendAddress && !address.street.trim())}
             />
           </div>
 
@@ -357,6 +364,7 @@ export function LocationForm(): React.ReactElement {
               value={address.city}
               placeholder="Lexington"
               onChange={(e) => changeAddress('city', e.target.value)}
+              {...needed(sendAddress && !address.city.trim())}
             />
           </div>
 
@@ -367,6 +375,7 @@ export function LocationForm(): React.ReactElement {
               autoComplete="address-level1"
               value={address.state}
               onChange={(e) => changeAddress('state', e.target.value)}
+              {...needed(sendAddress && !address.state)}
             >
               <option value="">Choose a state</option>
               {US_STATES.map((s) => (
@@ -386,6 +395,7 @@ export function LocationForm(): React.ReactElement {
               value={address.zip}
               placeholder="40507"
               onChange={(e) => changeAddress('zip', e.target.value)}
+              {...needed(sendAddress && !ZIP_PATTERN.test(address.zip.trim()))}
             />
           </div>
 
@@ -396,6 +406,7 @@ export function LocationForm(): React.ReactElement {
               id="timeZone"
               value={zoneChoice}
               aria-invalid={zoneProblem ? true : undefined}
+              {...needed(!isEdit && !zoneChoice)}
               aria-describedby={zoneHints.map((h) => h.id).join(' ') || undefined}
               onChange={(e) => {
                 setZoneChoice(e.target.value as UsTimeZone | '');
@@ -421,41 +432,30 @@ export function LocationForm(): React.ReactElement {
             ))}
           </div>
 
-          {!isEdit && (
-            <fieldset className="field">
-              <legend>Seating</legend>
-              <label className="choice">
-                <input
-                  type="radio"
-                  name="kind"
-                  checked={kind === 'general'}
-                  onChange={() => setKind('general')}
-                />
-                General admission
-              </label>
-              <label className="choice">
-                <input
-                  type="radio"
-                  name="kind"
-                  checked={kind === 'seated'}
-                  onChange={() => setKind('seated')}
-                />
-                Seated
-              </label>
-            </fieldset>
-          )}
-
-          {!isEdit && kind === 'seated' ? (
+          {!isEdit ? (
+            // 2026-11-19: importing a layout file is required; its seats are the capacity.
             <>
-              <SectionLines
-                levels={levels}
-                onLevelsChange={setLevels}
-                lines={lines}
-                onChange={setLines}
-              />
-              <p className="note">{`Total: ${totalSeats(lines).toLocaleString()} ${
-                totalSeats(lines) === 1 ? 'seat' : 'seats'
-              }`}</p>
+              <div className="field">
+                <label htmlFor={layoutFileId}>Layout file</label>
+                <input
+                  id={layoutFileId}
+                  type="file"
+                  accept=".json,application/json"
+                  aria-describedby={layoutFileError ? layoutProblemsId : undefined}
+                  aria-invalid={layoutFileError ? true : undefined}
+                  onChange={(e) => {
+                    setLayoutFile(e.target.files?.[0] ?? null);
+                    setLayoutFileError(null);
+                  }}
+                  {...needed(!layoutFile)}
+                />
+                <span className="field__hint">
+                  The venue&apos;s seating layout (JSON, format 1) of up to 4 MB: its sections,
+                  rows, seats and price levels. Its seats are the venue&apos;s capacity. More
+                  layouts can be imported on the venue page.
+                </span>
+              </div>
+              {layoutFileError && <ImportProblems id={layoutProblemsId} error={layoutFileError} />}
             </>
           ) : largest !== null ? (
             // Spec 038 FR-009: read-only, never sent; the largest layout sets it.
@@ -482,6 +482,7 @@ export function LocationForm(): React.ReactElement {
                 value={seatingCapacity}
                 placeholder="22090"
                 onChange={(e) => setSeatingCapacity(e.target.value)}
+                {...needed(!wholeAtLeastOne(seatingCapacity))}
               />
               <span className="field__hint">
                 An event scheduled here cannot sell more tickets than this. A seating layout, once

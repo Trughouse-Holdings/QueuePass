@@ -136,21 +136,25 @@ court with three levels from blank (< 15 min, someone who has not used the edito
 ## Automation
 
 Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
-manual. `npm test` checks this table against `e2e/tests`. `e2e/tests/039-layout-editor.spec.ts` walks S1–S3 (US1) and S5 (US2).
+manual. `npm test` checks this table against `e2e/tests`.
+
+**2026-11-19: the React Admin app's layout editor was removed** (layouts are imported from a file
+only; the Rust Admin app keeps its editor). `e2e/tests/039-layout-editor.spec.ts`, which walked
+S1–S3 and S5, and the Admin editor's own tests were removed with it, so every row is Manual now.
 
 | Scenario | Browser test |
 | --- | --- |
-| S1 | Automated: `039 S1/S2/S3: an admin draws a layout with a court and two generated sections, turns one, saves it, and the customer map draws it` |
-| S2 | Automated: `039 S1/S2/S3: an admin draws a layout with a court and two generated sections, turns one, saves it, and the customer map draws it` |
-| S3 | Automated: `039 S1/S2/S3: an admin draws a layout with a court and two generated sections, turns one, saves it, and the customer map draws it` |
-| S4 | Manual: covered by the Admin `LayoutEditor` test |
-| S5 | Automated: `039 S5: an admin adds three levels, paints a section, rows A–D and two seats, deletes Standard, and the levels are kept on reopening` |
-| S6 | Manual: covered by the Admin `editor-state` test |
+| S1 | Manual: removed 2026-11-19 with the React Admin app's layout editor |
+| S2 | Manual: removed 2026-11-19 with the React Admin app's layout editor |
+| S3 | Manual: removed 2026-11-19 with the React Admin app's layout editor |
+| S4 | Manual: removed 2026-11-19 with the React Admin app's layout editor |
+| S5 | Manual: removed 2026-11-19 with the React Admin app's layout editor |
+| S6 | Manual: removed 2026-11-19 with the React Admin app's layout editor |
 | S7 | Manual: covered by the Backend `layouts.drawing` test |
-| S8 | Manual: covered by the Admin `LayoutsCard` and `LayoutEditor` tests |
+| S8 | Manual: removed 2026-11-19 with the React Admin app's layout editor |
 | S9 | Manual: two windows and a race; the Backend `layouts.drawing` and `layouts.drawing.concurrency` tests |
 | S10 | Manual: covered by the Backend `layouts.drawing` test and the Admin `LayoutsCard` test |
-| S11 | Manual: covered by the Admin `editor-state` and `SelectionPanel` tests |
-| S12 | Manual: covered by the Admin keyboard tests |
-| S13 | Manual: covered by the Admin `overlap` and `SaveBar` tests |
-| S14 | Manual: covered by the Admin `LayoutEditor` test |
+| S11 | Manual: removed 2026-11-19 with the React Admin app's layout editor |
+| S12 | Manual: removed 2026-11-19 with the React Admin app's layout editor |
+| S13 | Manual: removed 2026-11-19 with the React Admin app's layout editor |
+| S14 | Manual: removed 2026-11-19 with the React Admin app's layout editor |

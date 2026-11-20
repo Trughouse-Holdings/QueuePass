@@ -5,7 +5,12 @@ import type { Location } from '@queuepass/shared';
 import { LocationDetail } from '../src/pages/LocationDetail';
 import { LocationForm } from '../src/pages/LocationForm';
 import { LocationList } from '../src/pages/LocationList';
-import { json, stubApi } from './helpers/api-stub';
+import { json, stubApi as stubOnly } from './helpers/api-stub';
+import { chooseLayoutFile, IMPORT_ROUTE } from './helpers/layout-file';
+
+/** Every stub also takes the layout file's import after a venue is created (2026-11-19). */
+const stubApi = (routes: Parameters<typeof stubOnly>[0]) =>
+  stubOnly({ ...IMPORT_ROUTE, ...routes });
 
 /**
  * Spec 020 US4, US5 (FR-004, FR-024, FR-026; research R14): the venue's zone on the list, the
@@ -65,10 +70,11 @@ function fill(values: Record<string, string> = {}): void {
     City: 'Louisville',
     State: 'KY',
     'ZIP code': '40202',
-    'Seating capacity': '22090',
     ...values,
   };
   for (const [label, value] of Object.entries(v)) set(label, value);
+  // 2026-11-19: a new venue starts from a layout file.
+  chooseLayoutFile();
 }
 const create = () => fireEvent.click(screen.getByRole('button', { name: 'Create venue' }));
 
@@ -177,7 +183,6 @@ describe('New venue: the admin picks the zone (spec 024 US1, FR-001, FR-002, FR-
     expect(select.getAttribute('aria-describedby')?.split(' ')).toContain(problem.id);
     expect(screen.getByLabelText('Name')).toHaveValue('KFC Yum! Center');
     expect(screen.getByLabelText('Street address')).toHaveValue('1 Arena Plaza');
-    expect(screen.getByLabelText('Seating capacity')).toHaveValue(22090);
     await new Promise((r) => setTimeout(r, 20));
     expect(writes(api)).toHaveLength(0);
 
@@ -185,7 +190,7 @@ describe('New venue: the admin picks the zone (spec 024 US1, FR-001, FR-002, FR-
     expect(screen.queryByText(ZONE_PROBLEM)).toBeNull();
     expect(screen.getByLabelText('Time zone')).not.toHaveAttribute('aria-invalid');
     create();
-    await waitFor(() => expect(writes(api)).toHaveLength(1));
+    await waitFor(() => expect(writes(api)).toHaveLength(2));
     expect(writes(api)[0].body).toMatchObject({ timeZone: 'America/Chicago' });
   });
 

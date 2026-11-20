@@ -5,7 +5,12 @@ import { mapsUrl, type Location } from '@queuepass/shared';
 import { LocationDetail } from '../src/pages/LocationDetail';
 import { LocationForm } from '../src/pages/LocationForm';
 import { LocationList } from '../src/pages/LocationList';
-import { json, stubApi } from './helpers/api-stub';
+import { json, stubApi as stubOnly } from './helpers/api-stub';
+import { chooseLayoutFile, IMPORT_ROUTE } from './helpers/layout-file';
+
+/** Every stub also takes the layout file's import after a venue is created (2026-11-19). */
+const stubApi = (routes: Parameters<typeof stubOnly>[0]) =>
+  stubOnly({ ...IMPORT_ROUTE, ...routes });
 
 /**
  * Spec 013 US1 (FR-012, FR-013, FR-019); research R13. Spec 024 US2 (FR-008 to FR-017; research
@@ -101,12 +106,13 @@ function fill(values: Partial<Record<string, string>> = {}): void {
     City: 'Louisville',
     State: 'KY',
     'ZIP code': '40202',
-    'Seating capacity': '22090',
     // Spec 024 FR-002: a new venue needs its zone chosen.
     'Time zone': 'America/New_York',
     ...values,
   };
   for (const [label, value] of Object.entries(v)) set(label, value ?? '');
+  // 2026-11-19: a new venue starts from a layout file of 22,090 seats, its capacity.
+  chooseLayoutFile();
 }
 
 const create = () => fireEvent.click(screen.getByRole('button', { name: 'Create venue' }));
@@ -118,7 +124,6 @@ function expectValuesKept(): void {
   expect(field('City').value).toBe('Louisville');
   expect(field('State').value).toBe('KY');
   expect(field('ZIP code').value).toBe('40202');
-  expect(field('Seating capacity').value).toBe('22090');
 }
 
 describe('Venue form address fields', () => {
@@ -140,7 +145,7 @@ describe('Venue form address fields', () => {
     renderAt('/locations/new');
     fill();
     create();
-    await waitFor(() => expect(writes(api)).toHaveLength(1));
+    await waitFor(() => expect(writes(api)).toHaveLength(2));
     expect(writes(api)[0].body).toEqual({
       name: 'KFC Yum! Center',
       street: '1 Arena Plaza',
@@ -173,7 +178,7 @@ describe('Venue form address fields', () => {
     renderAt('/locations/new');
     fill({ 'ZIP code': '40507-1234' });
     create();
-    await waitFor(() => expect(writes(api)).toHaveLength(1));
+    await waitFor(() => expect(writes(api)).toHaveLength(2));
     expect((writes(api)[0].body as { zip: string }).zip).toBe('40507-1234');
   });
 });
@@ -255,8 +260,11 @@ describe('One press saves the address (spec 024 US2, FR-008 to FR-011, FR-014, F
     expect(status).not.toBeNull();
     expect(status).not.toHaveClass('banner--success');
     expect(screen.queryByTestId('success-state')).toBeNull();
-    // One press, one request.
-    expect(writes(api)).toHaveLength(1);
+    // One press: the venue, then its layout file.
+    expect(writes(api).map((c) => c.path)).toEqual([
+      '/locations',
+      `/locations/${notVerified.id}/layouts/import`,
+    ]);
   });
 
   it('after a verified save, goes to the list with the saved address from the response', async () => {
@@ -369,53 +377,37 @@ describe('Editing a venue address', () => {
   });
 });
 
-describe('Seated venue in one step', () => {
-  const addSection = () => {
-    fireEvent.click(screen.getByRole('radio', { name: 'Seated' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Section 1 Section name' }), {
-      target: { value: 'A' },
-    });
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Section 1 Rows' }), {
-      target: { value: '2' },
-    });
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Section 1 Seats per row' }), {
-      target: { value: '10' },
-    });
-  };
-
-  it('saves the layout of a venue whose address is not verified (008 FR-017)', async () => {
+describe('New venue with its layout file in one step (2026-11-19)', () => {
+  it('imports the layout of a venue whose address is not verified (008 FR-017)', async () => {
     const api = stubApi({
       'POST /locations': json(notVerified, 201),
-      [`POST ${PATH}/layouts`]: json({ id: 'l-standard' }, 201),
       'GET /locations': json([notVerified]),
     });
     renderAt('/locations/new');
-    fill({ 'Seating capacity': undefined });
-    addSection();
+    fill();
     create();
     await screen.findByText(NOT_VERIFIED_NOTICE);
     expect(writes(api).map((c) => `${c.method} ${c.path}`)).toEqual([
       'POST /locations',
-      `POST ${PATH}/layouts`,
+      `POST ${PATH}/layouts/import`,
     ]);
     expect(writes(api)[0].body).toMatchObject({ acceptUnverifiedAddress: true });
+    expect(writes(api)[1].body).toMatchObject({ file: { format: 1, name: 'Basketball' } });
   });
 });
 
-describe('Seated venue whose layout is refused (spec 024 review round 1, minor 4)', () => {
+describe('New venue whose layout file is refused (spec 024 review round 1, minor 4)', () => {
+  const REFUSED = {
+    error: { code: 'LAYOUT_FILE_INVALID', message: 'The layout file has 1 problem.' },
+  };
+
   it('says the address is not verified beside "Seating layout not saved"', async () => {
     stubApi({
       'POST /locations': json(notVerified, 201),
-      [`POST ${PATH}/layouts`]: json(
-        { error: { code: 'VALIDATION_FAILED', message: 'section names must be unique' } },
-        400,
-      ),
+      [`POST ${PATH}/layouts/import`]: json(REFUSED, 400),
     });
     renderAt('/locations/new');
-    fill({ 'Seating capacity': undefined });
-    fireEvent.click(screen.getByRole('radio', { name: 'Seated' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
+    fill();
     create();
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Seating layout not saved');
@@ -427,15 +419,10 @@ describe('Seated venue whose layout is refused (spec 024 review round 1, minor 4
   it('says nothing about the address when it is verified', async () => {
     stubApi({
       'POST /locations': json(verified, 201),
-      [`POST ${PATH}/layouts`]: json(
-        { error: { code: 'VALIDATION_FAILED', message: 'section names must be unique' } },
-        400,
-      ),
+      [`POST ${PATH}/layouts/import`]: json(REFUSED, 400),
     });
     renderAt('/locations/new');
-    fill({ 'Seating capacity': undefined });
-    fireEvent.click(screen.getByRole('radio', { name: 'Seated' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
+    fill();
     create();
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Seating layout not saved');
