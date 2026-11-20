@@ -42,3 +42,22 @@ export function holderNameMessage(p: HolderNameProblem): string {
       return 'The name on the tickets must contain at least one letter.';
   }
 }
+
+/**
+ * Issue #182: the line beside Buy tickets (Cart) and Confirm order (general admission) while the
+ * name is all that keeps the button disabled. The Rust Customer app's
+ * `core::holder_name::NAME_NEEDED_TO_BUY` is the same text (spec 040).
+ */
+export const NAME_NEEDED_TO_BUY = 'Enter the name on tickets above to buy.';
+
+/**
+ * The line, or `null`: only while the name is not valid, the button would be usable with one,
+ * and no BUY wait shows its own message.
+ */
+export function nameNeededToBuy(s: {
+  nameOk: boolean;
+  usableWithName: boolean;
+  waiting: boolean;
+}): string | null {
+  return !s.nameOk && s.usableWithName && !s.waiting ? NAME_NEEDED_TO_BUY : null;
+}

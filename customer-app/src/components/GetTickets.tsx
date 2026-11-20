@@ -5,6 +5,7 @@ import {
   RESERVATION_LIMITS,
   holderNameMessage,
   holderNameProblem,
+  nameNeededToBuy,
   rateLimitMessage,
   type Availability,
   type ErrorEnvelope,
@@ -451,12 +452,16 @@ export function GetTickets({
   const nameProblem = holderNameProblem(holderName);
   // The shared message, shown once the field was left (research R2).
   const nameError = nameTouched && nameProblem !== null ? holderNameMessage(nameProblem) : null;
-  const canConfirm =
-    price !== undefined &&
-    ticketsLeft > 0 &&
-    chosenCount > 0 &&
-    nameProblem === null &&
-    phase.kind === 'choosing';
+  // Confirm order would be usable with a valid name.
+  const usableWithName =
+    price !== undefined && ticketsLeft > 0 && chosenCount > 0 && phase.kind === 'choosing';
+  const canConfirm = usableWithName && nameProblem === null;
+  // Issue #182: why Confirm order is disabled, when the name is all that is missing.
+  const needsName = nameNeededToBuy({
+    nameOk: nameProblem === null,
+    usableWithName,
+    waiting: waits.waits.BUY !== undefined,
+  });
 
   const choose = (change: () => void): void => {
     change();
@@ -673,10 +678,16 @@ export function GetTickets({
             className="btn btn--primary"
             disabled={!canConfirm}
             aria-disabled={waits.waits.BUY ? true : undefined}
+            aria-describedby={needsName !== null ? 'confirm-needs-name' : undefined}
             onClick={() => void confirm()}
           >
             {phase.kind === 'confirming' ? 'Confirming…' : 'Confirm order'}
           </button>
+          {needsName !== null && (
+            <p id="confirm-needs-name" className="note">
+              {needsName}
+            </p>
+          )}
         </>
       </>
     );

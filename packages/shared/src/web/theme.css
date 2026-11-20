@@ -378,7 +378,7 @@ summary.btn::-webkit-details-marker {
   background: var(--accent);
   color: var(--accent-text);
 }
-.btn--primary:hover {
+.btn--primary:hover:not(:disabled) {
   background: var(--accent-hover);
 }
 .btn--ghost {
@@ -386,8 +386,16 @@ summary.btn::-webkit-details-marker {
   color: var(--text);
   border-color: var(--border-strong);
 }
-.btn--ghost:hover {
+.btn--ghost:hover:not(:disabled) {
   background: var(--surface-alt);
+}
+
+/* Issue #182: a disabled button looks disabled in every app: faded, a not-allowed pointer, and
+   no hover change (the hover rules skip :disabled). WCAG 1.4.3 and 1.4.11 exempt an inactive
+   control from contrast; a line beside the button says why where it matters. */
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* ------------------------------------------------------------------- card */
@@ -780,7 +788,7 @@ button,
   color: var(--text);
   border-color: var(--border-strong);
 }
-.btn:not(.btn--primary):not(.btn--ghost):hover {
+.btn:not(.btn--primary):not(.btn--ghost):hover:not(:disabled) {
   background: var(--surface-alt);
 }
 

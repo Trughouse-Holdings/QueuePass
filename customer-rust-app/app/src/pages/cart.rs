@@ -340,6 +340,13 @@ fn CartEntry(page: Page, entry_key: String) -> impl IntoView {
             .with(|c| c.waits.text(RateLimitedAction::Buy))
             .map(|text| view! { <p class="banner banner--error" aria-live="off">{text}</p> })
     };
+    // Issue #182: why Buy tickets is disabled, when the name is all that is missing.
+    let needs_name = Memo::new(move |_| {
+        let usable = entry.with(|e| e.as_ref().is_some_and(|e| e.buy_enabled(true)));
+        let waiting = waiting.get();
+        page.name.with(|n| n.needed_to_buy(usable, waiting))
+    });
+    let needs_name_id = format!("cart-needs-name-{event_id}");
     let buy_button = NodeRef::<html::Button>::new();
     let check_button = NodeRef::<html::Button>::new();
     let actions = {
@@ -347,6 +354,8 @@ fn CartEntry(page: Page, entry_key: String) -> impl IntoView {
         let href = href.clone();
         move || {
             let id = event_id.clone();
+            let hint_id = needs_name_id.clone();
+            let described_by = needs_name_id.clone();
             if unknown.get() {
                 view! {
                     <div role="alert" class="banner banner--conflict">
@@ -385,11 +394,19 @@ fn CartEntry(page: Page, entry_key: String) -> impl IntoView {
                                 !entry.with(|e| e.as_ref().is_some_and(|e| e.buy_enabled(ok)))
                             }
                             aria-disabled=move || waiting.get().then_some("true")
+                            aria-describedby=move || {
+                                needs_name.get().map(|_| described_by.clone())
+                            }
                             on:click=move |_| page.buy(id.clone(), buy_button)
                         >
                             {move || entry.with(|e| e.as_ref().map_or("Buy tickets", |e| e.buy_text))}
                         </button>
                     </div>
+                    {move || {
+                        needs_name
+                            .get()
+                            .map(|text| view! { <p id=hint_id.clone() class="note">{text}</p> })
+                    }}
                 }
                 .into_any()
             }

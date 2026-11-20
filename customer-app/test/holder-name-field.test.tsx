@@ -50,6 +50,31 @@ describe('the Name on tickets field (US4-1)', () => {
     expect(await confirmButton()).toBeEnabled();
   });
 
+  // Issue #182: Confirm order disabled only for the name says so beside it, linked to it.
+  it('says beside a disabled Confirm order that the name is needed, until one is typed', async () => {
+    const NEEDS_NAME = 'Enter the name on tickets above to buy.';
+    const { calls } = stubApi(tierlessRoutes());
+    renderCustomer({ at: '/events/e1' });
+
+    const field = await nameField();
+    const confirm = await confirmButton();
+    expect(confirm).toBeDisabled();
+    expect(screen.getByText(NEEDS_NAME)).toHaveClass('note');
+    expect(confirm).toHaveAccessibleDescription(NEEDS_NAME);
+
+    fireEvent.change(field, { target: { value: '1234' } });
+    expect(screen.getByText(NEEDS_NAME)).toBeInTheDocument();
+
+    fireEvent.change(field, { target: { value: 'Jordan Lee' } });
+    expect(screen.queryByText(NEEDS_NAME)).toBeNull();
+    expect(confirm).toBeEnabled();
+    expect(confirm).not.toHaveAttribute('aria-describedby');
+
+    fireEvent.click(confirm);
+    expect(await screen.findByRole('heading', { name: 'Order confirmed' })).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1);
+  });
+
   it('shows the shared message for each problem once the field was touched', async () => {
     stubApi(tierlessRoutes());
     renderCustomer({ at: '/events/e1' });
@@ -170,6 +195,8 @@ describe('the seated flow (US4-4)', () => {
 
     await screen.findByRole('timer');
     expect(screen.queryByRole('textbox', { name: /Name on tickets/ })).toBeNull();
+    // Issue #182: nor the line asking for one.
+    expect(screen.queryByText('Enter the name on tickets above to buy.')).toBeNull();
   });
 
   it('sends holderName with a seated order too, from the cart (spec 033 FR-013)', async () => {

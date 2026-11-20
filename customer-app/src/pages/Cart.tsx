@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { holderNameMessage, holderNameProblem, type Event, type Order } from '@queuepass/shared';
+import {
+  holderNameMessage,
+  holderNameProblem,
+  nameNeededToBuy,
+  type Event,
+  type Order,
+} from '@queuepass/shared';
 import { useAuth } from '@queuepass/shared/web';
 import { HoldCountdown, ONE_MINUTE_LEFT } from '../components/HoldCountdown';
 import { OrderConfirmation } from '../components/OrderConfirmation';
@@ -443,6 +449,13 @@ function CartEntry({
   }, [entry.deadline]);
 
   const headingId = `cart-${r.eventId}`;
+  // Issue #182: why Buy tickets is disabled, when the name is all that is missing.
+  const needsName = nameNeededToBuy({
+    nameOk,
+    usableWithName: phase.kind === 'choosing',
+    waiting: waits.waits.BUY !== undefined,
+  });
+  const needsNameId = `cart-needs-name-${r.eventId}`;
 
   async function buy(): Promise<void> {
     if (!nameOk && phase.kind !== 'unknown') return;
@@ -520,20 +533,28 @@ function CartEntry({
           </div>
         </div>
       ) : (
-        <div className="form__actions">
-          <Link to={`/events/${r.eventId}`}>Change seats</Link>
-          {waits.waits.BUY && <WaitMessage wait={waits.waits.BUY} />}
-          <button
-            ref={buyButton}
-            type="button"
-            className="btn btn--primary"
-            disabled={!nameOk || phase.kind !== 'choosing'}
-            aria-disabled={waits.waits.BUY ? true : undefined}
-            onClick={() => void buy()}
-          >
-            {phase.kind === 'confirming' ? 'Buying…' : 'Buy tickets'}
-          </button>
-        </div>
+        <>
+          <div className="form__actions">
+            <Link to={`/events/${r.eventId}`}>Change seats</Link>
+            {waits.waits.BUY && <WaitMessage wait={waits.waits.BUY} />}
+            <button
+              ref={buyButton}
+              type="button"
+              className="btn btn--primary"
+              disabled={!nameOk || phase.kind !== 'choosing'}
+              aria-disabled={waits.waits.BUY ? true : undefined}
+              aria-describedby={needsName !== null ? needsNameId : undefined}
+              onClick={() => void buy()}
+            >
+              {phase.kind === 'confirming' ? 'Buying…' : 'Buy tickets'}
+            </button>
+          </div>
+          {needsName !== null && (
+            <p id={needsNameId} className="note">
+              {needsName}
+            </p>
+          )}
+        </>
       )}
     </section>
   );

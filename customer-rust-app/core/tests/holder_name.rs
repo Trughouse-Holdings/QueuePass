@@ -3,8 +3,8 @@
 //! `customer-app/test/holder-name-field.test.tsx` (when the message shows, how it is linked).
 
 use customer_rust_core::holder_name::{
-    HOLDER_NAME_HINT, HOLDER_NAME_MAX, HolderNameField, HolderNameProblem, holder_name_message,
-    holder_name_problem, normalize_holder_name,
+    HOLDER_NAME_HINT, HOLDER_NAME_MAX, HolderNameField, HolderNameProblem, NAME_NEEDED_TO_BUY,
+    holder_name_message, holder_name_problem, name_needed_to_buy, normalize_holder_name,
 };
 
 use HolderNameProblem::*;
@@ -155,4 +155,54 @@ fn the_message_goes_once_the_name_is_fixed() {
     assert_eq!(field.described_by(), "holder-name-hint");
     // The name is sent as typed (the Backend normalizes it).
     assert_eq!(field.value(), "Jordan Lee");
+}
+
+// ------------------------------------------------------------------ issue #182
+
+/// The same words as the React Customer app's (`packages/shared/src/holder-name.ts`), read from
+/// that file so the two cannot drift apart (spec 040).
+#[test]
+fn name_needed_to_buy_is_the_shared_text() {
+    assert_eq!(
+        NAME_NEEDED_TO_BUY,
+        "Enter the name on tickets above to buy."
+    );
+    let ts = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../packages/shared/src/holder-name.ts"
+    ))
+    .expect("read packages/shared/src/holder-name.ts");
+    assert!(
+        ts.contains(&format!(
+            "export const NAME_NEEDED_TO_BUY = '{NAME_NEEDED_TO_BUY}';"
+        )),
+        "holder-name.ts' NAME_NEEDED_TO_BUY differs"
+    );
+}
+
+#[test]
+fn name_needed_to_buy_shows_only_while_the_name_is_the_one_thing_missing() {
+    // No valid name, usable with one, no wait: the line.
+    assert_eq!(
+        name_needed_to_buy(false, true, false),
+        Some(NAME_NEEDED_TO_BUY)
+    );
+    // A valid name: nothing to say.
+    assert_eq!(name_needed_to_buy(true, true, false), None);
+    // Something else blocks it too (buying, nothing chosen, sold out).
+    assert_eq!(name_needed_to_buy(false, false, false), None);
+    // The BUY wait shows its own message.
+    assert_eq!(name_needed_to_buy(false, true, true), None);
+}
+
+#[test]
+fn the_field_says_when_the_name_is_needed() {
+    let mut f = HolderNameField::default();
+    assert_eq!(f.needed_to_buy(true, false), Some(NAME_NEEDED_TO_BUY));
+    f.set("   ");
+    assert_eq!(f.needed_to_buy(true, false), Some(NAME_NEEDED_TO_BUY));
+    f.set("1234");
+    assert_eq!(f.needed_to_buy(true, false), Some(NAME_NEEDED_TO_BUY));
+    f.set("Jordan Lee");
+    assert_eq!(f.needed_to_buy(true, false), None);
 }
