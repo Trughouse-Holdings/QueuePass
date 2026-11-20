@@ -518,11 +518,14 @@ describe('disabled buttons (#182)', () => {
     expect(body).not.toMatch(/color|background|#|rgb|hsl/);
   });
 
-  it('keep their look under the pointer: every .btn hover rule skips :disabled', () => {
-    const hovers = [...css.matchAll(/(?:^|\n)([^{}\n]*\.btn[^{}\n]*:hover[^{}\n]*)\{/g)].map((m) =>
-      m[1]!.trim(),
+  it('keep their look under the pointer and when pressed: every .btn :hover and :active rule skips :disabled', () => {
+    // Every selector of every rule, selector lists split (across lines too), comments dropped.
+    const selectors = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)].flatMap(
+      (m) => m[1]!.split(',').map((s) => s.trim()),
     );
-    expect(hovers).toEqual([
+    const pressed = selectors.filter((s) => /\.btn\b/.test(s) && /:(hover|active)/.test(s));
+    expect(pressed).toEqual([
+      '.btn:active:not(:disabled)',
       '.btn--primary:hover:not(:disabled)',
       '.btn--ghost:hover:not(:disabled)',
       '.btn:not(.btn--primary):not(.btn--ghost):hover:not(:disabled)',

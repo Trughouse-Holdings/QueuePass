@@ -33,8 +33,9 @@ test(
     });
     await admin.close();
 
-    // Index 17: free in both projects' ranges (033 uses 19; 026's repeats 11 to 18 use other
-    // events, and holds and limits are per event).
+    // Index 17 (and 18 below): 0 to 10 are other tests', 19 is 033's. 026 uses 11 + its repeat
+    // index and fills an account's HOLD minute (rate limits are per account), so these two meet
+    // 026 only under `--repeat-each` 7 or more.
     await signIn(page, customerApp, customerFor(testInfo, 17), `/events/${event.id}`);
     const tickets = page.getByRole('region', { name: 'Get tickets' });
     await tickets.getByRole('button', { name: 'Choose seats' }).click();
@@ -97,7 +98,7 @@ test(
     });
     await admin.close();
 
-    // Index 18: see above.
+    // Index 18: see the test above.
     await signIn(page, customerApp, customerFor(testInfo, 18), `/events/${event.id}`);
     const tickets = page.getByRole('region', { name: 'Get tickets' });
     const confirm = tickets.getByRole('button', { name: 'Confirm order' });
