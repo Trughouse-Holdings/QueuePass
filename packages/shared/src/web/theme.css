@@ -642,9 +642,10 @@ input.input--needed,
 select.input--needed {
   border-color: var(--danger);
 }
-/* ...and says so: a small bold "Required" beside its label, or under a box with no label. */
+/* ...and says so: a small bold "Required" beside its label, or under a box with no label. It is
+   for the eye only (empty alternative text), so it never joins the field's accessible name. */
 .field:has(> input.input--needed, > select.input--needed) > label::after {
-  content: 'Required';
+  content: 'Required' / '';
   margin-left: 8px;
 }
 .field:has(> input.input--needed, > select.input--needed) > label::after,

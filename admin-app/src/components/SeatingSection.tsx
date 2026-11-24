@@ -149,7 +149,11 @@ function LayoutSeating(props: SeatingSectionProps & { detail: LayoutDetail }): R
                           onChange={(e) => props.onPrice(level.id, e.target.value)}
                           {...described(`${id}-error`, messages)}
                         />
-                        {props.needed?.(key) && <span className="required-tag">Required</span>}
+                        {props.needed?.(key) && (
+                          <span className="required-tag" aria-hidden="true">
+                            Required
+                          </span>
+                        )}
                         {hint(`${id}-error`, messages)}
                       </>
                     )}

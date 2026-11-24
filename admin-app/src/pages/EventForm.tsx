@@ -1184,7 +1184,11 @@ export function EventForm(): React.ReactElement {
             )}
           </div>
           {TYPE_BOXES.some((f) => needed(`tiers.${i}.${f}`)) && (
-            <span className="required-tag" data-testid={`type-${i + 1}-required`}>
+            <span
+              className="required-tag"
+              aria-hidden="true"
+              data-testid={`type-${i + 1}-required`}
+            >
               {`Required: ${TYPE_BOXES.filter((f) => needed(`tiers.${i}.${f}`)).join(', ')}`}
             </span>
           )}
