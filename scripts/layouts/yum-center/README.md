@@ -42,7 +42,7 @@ recorded in research R18):
 **Our estimate**, a clean geometric approximation and not traced from any chart:
 
 - The bowl's shape and size. Map units are about a foot (`size` 500 × 420, `y` grows downward). The
-  floor is an ellipse 190 × 104, so sections fan out as wedges, around a 94 × 50 court; the
+  floor is a rounded rectangle (a superellipse, exponent 3) 170 × 90 around a 94 × 50 court; the
   lower ring's rows are 2.75 apart, the upper ring's 2.3. Each section is bounded by two lines
   normal to the bowl, so every row is a smooth arc, written as one seat run with a `bend` (R5).
 - Where each section sits: positions in "bowl degrees", the share of the ring's length, clockwise
