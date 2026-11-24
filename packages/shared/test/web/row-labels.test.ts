@@ -10,18 +10,18 @@ import { describe, expect, it } from 'vitest';
  * halo is now a share of the label's own size. jsdom lays nothing out, so the rule is checked.
  */
 const theme = readFileSync(resolve(process.cwd(), 'src/web/theme.css'), 'utf8');
+const admin = readFileSync(resolve(process.cwd(), '../../admin-app/src/styles.css'), 'utf8');
 
 const rule = (css: string, selector: string): string =>
   css.match(new RegExp(`\\${selector}\\s*\\{([^}]*)\\}`))?.[1] ?? '';
 
-// The React Admin app's layout editor, and its row-label rule, were removed (import-only layouts).
 describe('row labels in a zoomed section', () => {
-  it.each([['the shared venue map', theme, '.venue-map__row-label']])(
-    'in %s, have a halo sized by the label, not 3 map units',
-    (_where, css, selector) => {
-      const body = rule(css, selector);
-      expect(body).toMatch(/stroke-width:\s*0?\.\d+em/);
-      expect(body).not.toMatch(/stroke-width:\s*3px/);
-    },
-  );
+  it.each([
+    ['the shared venue map', theme, '.venue-map__row-label'],
+    ['the layout editor', admin, '.editor-map__row-label'],
+  ])('in %s, have a halo sized by the label, not 3 map units', (_where, css, selector) => {
+    const body = rule(css, selector);
+    expect(body).toMatch(/stroke-width:\s*0?\.\d+em/);
+    expect(body).not.toMatch(/stroke-width:\s*3px/);
+  });
 });
