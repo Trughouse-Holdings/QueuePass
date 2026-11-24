@@ -603,15 +603,12 @@ unchanged.
   in grayscale, and full keyboard use, in the Admin app's look (`008`)
 - **Seating layouts** — a venue has several layouts (Basketball, End-stage concert, …), each a
   map of sections, rows, and seats in price levels (by section, row, or seat), imported from a
-  layout file. In the Admin app a new venue needs a layout file, and more are imported on the
-  venue page; section lines and the layout editor were removed on 2026-11-19 (the Backend still
-  has their API, and the Rust Admin app its editor). The venue's capacity is its largest layout's. A layout
+  layout file or made from section lines; the venue's capacity is its largest layout's. A layout
   used by an event with sold or held seats is locked: it can be duplicated, not changed or
   deleted (`038`, after `007`). The layout file format is `LayoutFile` in
   [`contracts/openapi.yaml`](contracts/openapi.yaml); the demo's four KFC Yum! Center files are made
   by `node scripts/layouts/generate-yum-center.mjs` from `scripts/layouts/yum-center/plan.json`
-- **The layout editor** (removed from the React Admin app on 2026-11-19; the Rust Admin app keeps
-  it) — New layout, or Edit on any layout nobody has bought
+- **The layout editor** — in the Admin app, New layout, or Edit on any layout nobody has bought
   from, opens a full-page editor: pick a floor object (court, end stage, center stage, ring), add
   sections with the block generator (rows, seats per row or a list of them, letter or number row
   labels, a curve), drag and turn them into place, paint price levels on sections, rows and single

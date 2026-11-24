@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useRoutes, type RouteObject } from 'react-router-dom';
+import { NavLink, Outlet, useMatch, useRoutes, type RouteObject } from 'react-router-dom';
 import { HelloPage, LogoutButton, useAuth } from '@queuepass/shared/web';
 import { connectAuth } from './api/client';
 import { LocationList } from './pages/LocationList';
@@ -9,6 +9,7 @@ import { EventForm } from './pages/EventForm';
 import { EventDetail } from './pages/EventDetail';
 import { Attendees } from './pages/Attendees';
 import { Reports } from './pages/Reports';
+import { LayoutEditorPage } from './layout-editor/LayoutEditor';
 
 const navClass = ({ isActive }: { isActive: boolean }): string =>
   `navlink${isActive ? ' navlink--active' : ''}`;
@@ -19,6 +20,8 @@ function AppShell(): React.ReactElement {
   // request in their own effects, which run before a parent's.
   const { accessToken, signIn } = useAuth();
   connectAuth({ accessToken, signIn: () => void signIn() });
+  // Spec 039 research R14: the layout editor is full width under the top bar.
+  const editing = useMatch('/locations/:id/layouts/*');
 
   return (
     <div className="app">
@@ -45,7 +48,7 @@ function AppShell(): React.ReactElement {
         </div>
       </header>
 
-      <main className="main">
+      <main className={editing ? 'main main--full' : 'main'}>
         <Outlet />
       </main>
     </div>
@@ -75,6 +78,9 @@ export const routes: RouteObject[] = [
       // After /locations/new, so "new" is never read as an id.
       { path: '/locations/:id', element: <LocationDetail /> },
       { path: '/locations/:id/edit', element: <LocationForm /> },
+      // Spec 039 (R14): the layout editor, for a new layout or an existing one.
+      { path: '/locations/:id/layouts/new', element: <LayoutEditorPage /> },
+      { path: '/locations/:id/layouts/:layoutId/edit', element: <LayoutEditorPage /> },
       { path: '/events', element: <EventList /> },
       { path: '/events/new', element: <EventForm /> },
       // After /events/new, so "new" is never read as an id.

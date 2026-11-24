@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   LAYOUT_LIMITS,
   type LayoutDetail,
@@ -8,6 +9,7 @@ import {
 import { LayoutPreview } from '@queuepass/shared/web';
 import { ApiError } from '../api/client';
 import {
+  createVenueLayout,
   deleteVenueLayout,
   duplicateVenueLayout,
   getVenueLayout,
@@ -16,6 +18,14 @@ import {
   updateVenueLayout,
 } from '../api/layouts';
 import { ErrorBanner } from './ErrorBanner';
+import {
+  NEW_LEVEL,
+  SectionLines,
+  toLinesInput,
+  totalSeats,
+  type LevelLine,
+  type SectionLine,
+} from './SectionLines';
 
 const count = (n: number, one: string, many = `${one}s`): string =>
   `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -39,46 +49,38 @@ const readText = (file: File): Promise<string> =>
         reader.readAsText(file);
       });
 
-/** The seats a layout file describes (each row's `seats.count`); 0 when it names none. */
-const seatsInFile = (file: Record<string, unknown>): number => {
-  let seats = 0;
-  for (const section of Array.isArray(file.sections) ? file.sections : []) {
-    for (const row of Array.isArray(section?.rows) ? section.rows : []) {
-      const count = Number(row?.seats?.count);
-      if (Number.isInteger(count) && count > 0) seats += count;
-    }
-  }
-  return seats;
-};
+/** A refusal of the import, or a file that could not be read as one. */
+type ImportError = { kind: 'api'; error: ApiError } | { kind: 'local'; message: string };
 
-/**
- * A chosen layout file, read before it is sent: at most 4 MB and JSON, with the seats it
- * describes. The Backend still checks the file itself (`LAYOUT_FILE_INVALID`).
- */
-export async function readLayoutFile(
-  file: File,
-): Promise<{ file: Record<string, unknown>; seats: number } | { problem: string }> {
-  if (file.size > LAYOUT_LIMITS.maxImportBytes) {
-    return { problem: `${file.name} is larger than 4 MB.` };
-  }
-  try {
-    const parsed = JSON.parse(await readText(file)) as Record<string, unknown>;
-    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error();
-    return { file: parsed, seats: seatsInFile(parsed) };
-  } catch {
-    return { problem: `${file.name} is not a layout file: it is not JSON.` };
-  }
+/** The section-line form, for a new layout or for a LINES layout being edited. */
+interface LinesDraft {
+  name: string;
+  levels: LevelLine[];
+  lines: SectionLine[];
 }
 
-/** A refusal of the import, or a file that could not be read as one. */
-export type ImportError = { kind: 'api'; error: ApiError } | { kind: 'local'; message: string };
+/** A LINES layout as lines again: its levels by rank, its sections in order (R6). */
+const draftOf = (layout: LayoutDetail): LinesDraft => {
+  const levelName = new Map(layout.levels.map((l) => [l.id, l.name]));
+  return {
+    name: layout.name,
+    levels: layout.levels.map((l) => ({ name: l.name, color: l.color })),
+    lines: layout.sections.map((s) => ({
+      name: s.name,
+      rows: String(s.rowCount),
+      seatsPerRow: String(s.seatCount / s.rowCount),
+      level: levelName.get(s.levelId) ?? '',
+    })),
+  };
+};
 
 /**
  * Spec 038 US1 (FR-004–FR-009; research R15): the venue page's Layouts card, in place of `007`'s
  * single layout. Each layout with its counts, the scheduled events using it, whether it is locked
  * (sold or held seats at one of them; the API names no event there, a refused change does), and a
- * preview of its map; Import layout file (the only way to add a layout: the layout editor and
- * section lines were removed on 2026-11-19), and per layout Rename, Duplicate and Delete. Each refusal is shown beside the control that was used, in the Backend's
+ * preview of its map; Import layout file, New layout
+ * from section lines, and per layout Rename, Edit section lines (a layout made from lines only),
+ * Duplicate and Delete. Each refusal is shown beside the control that was used, in the Backend's
  * words, and nothing typed is lost. `onLayouts` hears every list loaded, for the venue's capacity.
  */
 export function LayoutsCard({
@@ -90,6 +92,8 @@ export function LayoutsCard({
 }): React.ReactElement {
   const [layouts, setLayouts] = useState<LayoutSummary[] | null | 'unavailable'>(null);
   const [details, setDetails] = useState<Record<string, LayoutDetail>>({});
+  const [adding, setAdding] = useState<LinesDraft | null>(null);
+  const [addError, setAddError] = useState<ApiError | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [importError, setImportError] = useState<ImportError | null>(null);
   const [busy, setBusy] = useState(false);
@@ -139,15 +143,33 @@ export function LayoutsCard({
   async function importFile(): Promise<void> {
     if (!file) return;
     setImportError(null);
-    const read = await readLayoutFile(file);
-    if ('problem' in read) {
-      setImportError({ kind: 'local', message: read.problem });
+    if (file.size > LAYOUT_LIMITS.maxImportBytes) {
+      setImportError({ kind: 'local', message: `${file.name} is larger than 4 MB.` });
+      return;
+    }
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(await readText(file)) as Record<string, unknown>;
+    } catch {
+      setImportError({
+        kind: 'local',
+        message: `${file.name} is not a layout file: it is not JSON.`,
+      });
       return;
     }
     await run(
-      () => importVenueLayout(venue.id, { file: read.file as never }),
+      () => importVenueLayout(venue.id, { file: parsed as never }),
       (error) => setImportError({ kind: 'api', error }),
     );
+  }
+
+  async function saveNew(draft: LinesDraft): Promise<void> {
+    setAddError(null);
+    const ok = await run(
+      () => createVenueLayout(venue.id, toLinesInput(draft.name, draft.levels, draft.lines)),
+      setAddError,
+    );
+    if (ok) setAdding(null);
   }
 
   return (
@@ -193,19 +215,40 @@ export function LayoutsCard({
         >
           Import layout file
         </button>
+        {/* Spec 039 FR-001: the layout editor, on a new layout. */}
+        <Link className="btn" to={`/locations/${venue.id}/layouts/new`}>
+          New layout
+        </Link>
+        {!adding && (
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              setAddError(null);
+              setAdding({ name: '', levels: [NEW_LEVEL], lines: [] });
+            }}
+          >
+            New layout from section lines
+          </button>
+        )}
       </div>
+      {adding && (
+        <LinesForm
+          label="New layout from section lines"
+          draft={adding}
+          onDraft={(update) => setAdding((d) => (d ? update(d) : d))}
+          error={addError}
+          busy={busy}
+          onSave={() => void saveNew(adding)}
+          onCancel={() => setAdding(null)}
+        />
+      )}
     </section>
   );
 }
 
 /** The import's problems under the file input, each with its place in the file (R5). */
-export function ImportProblems({
-  id,
-  error,
-}: {
-  id: string;
-  error: ImportError;
-}): React.ReactElement {
+function ImportProblems({ id, error }: { id: string; error: ImportError }): React.ReactElement {
   if (error.kind === 'local') {
     return (
       <div id={id} role="alert" className="banner banner--error">
@@ -267,6 +310,7 @@ function LayoutItem({
   const nameId = useId();
   const [error, setError] = useState<ApiError | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
+  const [editing, setEditing] = useState<LinesDraft | null>(null);
   const { name } = layout;
 
   const act = async (action: () => Promise<unknown>): Promise<boolean> => {
@@ -276,6 +320,12 @@ function LayoutItem({
 
   const rename = async (to: string) => {
     if (await act(() => updateVenueLayout(layout.id, { name: to.trim() }))) setRenaming(null);
+  };
+  const saveLines = async (draft: LinesDraft) => {
+    const ok = await act(() =>
+      updateVenueLayout(layout.id, toLinesInput(draft.name, draft.levels, draft.lines)),
+    );
+    if (ok) setEditing(null);
   };
   const remove = () => {
     if (!window.confirm(`Delete the layout "${name}"? This can't be undone.`)) return;
@@ -321,6 +371,14 @@ function LayoutItem({
       )}
 
       <div className="form__actions">
+        {/* Spec 039 FR-001, FR-002: the layout editor; read-only with Duplicate to edit if locked. */}
+        <Link
+          className="btn"
+          to={`/locations/${layout.locationId}/layouts/${layout.id}/edit`}
+          aria-label={`${layout.locked ? 'View' : 'Edit'} ${name}`}
+        >
+          {layout.locked ? 'View' : 'Edit'}
+        </Link>
         <button
           type="button"
           className="btn"
@@ -332,6 +390,19 @@ function LayoutItem({
         >
           Rename
         </button>
+        {layout.source === 'LINES' && detail && (
+          <button
+            type="button"
+            className="btn"
+            aria-label={`Edit section lines of ${name}`}
+            onClick={() => {
+              setError(null);
+              setEditing(draftOf(detail));
+            }}
+          >
+            Edit section lines
+          </button>
+        )}
         <button
           type="button"
           className="btn"
@@ -351,7 +422,81 @@ function LayoutItem({
           Delete
         </button>
       </div>
-      {error && <ErrorBanner error={error} title={`Could not change ${name}`} />}
+      {error && !editing && <ErrorBanner error={error} title={`Could not change ${name}`} />}
+
+      {editing && (
+        <LinesForm
+          label={`Section lines of ${name}`}
+          draft={editing}
+          onDraft={(update) => setEditing((d) => (d ? update(d) : d))}
+          error={error}
+          busy={busy}
+          onSave={() => void saveLines(editing)}
+          onCancel={() => setEditing(null)}
+        />
+      )}
     </article>
+  );
+}
+
+/** A layout's name, levels and section lines, with Save layout and its refusal under it. */
+function LinesForm({
+  label,
+  draft,
+  onDraft,
+  error,
+  busy,
+  onSave,
+  onCancel,
+}: {
+  label: string;
+  draft: LinesDraft;
+  /** Each change as an update of the draft as it is then: a level's rename changes two parts. */
+  onDraft: (update: (draft: LinesDraft) => LinesDraft) => void;
+  error: ApiError | null;
+  busy: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+}): React.ReactElement {
+  const nameId = useId();
+  const seats = totalSeats(draft.lines);
+  return (
+    <form
+      className="form"
+      aria-label={label}
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave();
+      }}
+    >
+      <div className="field">
+        <label htmlFor={nameId}>Layout name</label>
+        <input
+          id={nameId}
+          value={draft.name}
+          maxLength={LAYOUT_LIMITS.nameMaxLength}
+          onChange={(e) => {
+            const name = e.target.value;
+            onDraft((d) => ({ ...d, name }));
+          }}
+        />
+      </div>
+      <SectionLines
+        levels={draft.levels}
+        onLevelsChange={(levels) => onDraft((d) => ({ ...d, levels }))}
+        lines={draft.lines}
+        onChange={(lines) => onDraft((d) => ({ ...d, lines }))}
+      />
+      <p className="note">{`Total: ${count(seats, 'seat')}`}</p>
+      {error && <ErrorBanner error={error} title="Could not save the layout" />}
+      <div className="form__actions">
+        <button type="submit" className="btn btn--primary" disabled={busy}>
+          {busy ? 'Saving…' : 'Save layout'}
+        </button>
+        <button type="button" className="btn" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
