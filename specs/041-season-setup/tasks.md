@@ -271,8 +271,16 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
   seed succeeds the first time, demo reset, sign in, use and log out of every front end
 - [ ] T050 Browser walk of quickstart S0–S11 by Nate in both Admin apps (S5 with a pass inserted by
   the fixture or SQL until 042 merges); record it here with the date
-- [ ] T051 Independent review by a Claude session that did not write the implementation; fix the
+- [X] T051 Independent review by a Claude session that did not write the implementation; fix the
   findings; record the review and any finding left open in the impl PR description
+  - **Done 2026-11-28** (one round): no blocking, 5 should-fix, 9 minor. Fixed in 3f2a104, ab0c0d1,
+    d2b7b24: Put on sale off while the form differs from the saved Season; nested price refusals
+    placed; prices capped at 99999999.99; the venue-moved retry tested and set to one retry (R2);
+    the passes-sold reason beside the event list; cancel's run-out sweep; event order; the P2002
+    mapping tested; the publish preview used; the single-tickets time message; one name order in
+    both apps; the picker filtered by venue. **Left open**: the Layouts card and layout editor don't
+    show "Locked" for a layout an on-sale Season uses (it needs a contract field naming the Season;
+    saving is still refused with `409 LAYOUT_IN_USE` naming it). Follow-up issue to file.
 - [ ] T052 Open the implementation PR from `041-season-setup-impl` with `fixes #192` in its
   description (not in any commit), the coverage figures, the walk, and any shared-contract fix for
   042's author
