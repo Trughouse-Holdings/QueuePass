@@ -220,15 +220,15 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
   presale); clearing the time shows `null` at once
 - [X] T039 [US4] `backend/src/events/events.service.ts` event reads add `season` and
   `singleSalesOpenAt` (database clock, R5); make both required on `Event` in `openapi.yaml`
-  - **Open gap (implementation, 2026-11-28)**: making `Order.seasonPass` (T034) and
-    `Event.season`/`singleSalesOpenAt` (T039) and the report's pass fields required breaks about
-    30 tests of `customer-rust-app/core` whose JSON fixtures (`core/tests/fixtures/api/*.json`,
-    `generate.mts`, inline JSON in `core/tests/buy.rs` and others) predate them: serde refuses a
-    missing required field. The app itself reads what the Backend sends, which always has them.
-    `customer-rust-app/` is 042's (ground rules), so this implementation does not edit it; either
-    the fixtures gain the fields (`"seasonPass": null`, `"season": null`,
-    `"singleSalesOpenAt": null`, pass figures 0) in this PR with 042's author's agreement, or the
-    fields stay optional until 042. `npm test` fails at that workspace until one is chosen.
+  - **Resolved (2026-11-28)**: making `Order.seasonPass` (T034), `Event.season`/
+    `singleSalesOpenAt` (T039) and the report's pass fields required broke 30 tests of
+    `customer-rust-app/core`, whose JSON test data predated them (serde refuses a missing required
+    field; the app itself reads what the Backend sends, which always has them). Fixed in this PR
+    with test data only, since 042 has not started: `core/tests/fixtures/api/Event.json`,
+    `Order.json`, `SalesReport.json` (now the same as the Rust Admin app's), `generate.mts` (the same
+    neutral values as the Rust Admin app's), and `"seasonPass": null` on the inline orders of
+    `core/tests/buy.rs`, `calendar.rs`, `cart.rs`, `live_code.rs`, `my_tickets.rs`. No app code in
+    `customer-rust-app/` changed. The impl PR names these files for 042's author.
 - [X] T040 [US4] Admin event page "Single tickets on sale from …" in the venue's zone, both apps
   (React test and Rust core test first)
 
@@ -265,7 +265,7 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
   verified list
 - [X] T047 Confirm no `x-planned: '041'` marker is left, every `'042'` marker is, and the route-
   coverage, contract-drift and boundary checks pass
-- [ ] T048 Full `npm test`, `npm run lint`, `npm run format:check`; every workspace at or above 80%
+- [X] T048 Full `npm test`, `npm run lint`, `npm run format:check`; every workspace at or above 80%
   lines (SC-007); record the coverage figures for the PR
 - [ ] T049 Running-system gate (Constitution gate 5): fresh clone, `docker compose up --build`,
   seed succeeds the first time, demo reset, sign in, use and log out of every front end

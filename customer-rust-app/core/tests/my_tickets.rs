@@ -33,7 +33,7 @@ fn my_order(over: Value) -> MyOrder {
         "eventId": "00000000-0000-4000-8000-0000000000e1",
         "tierId": null, "tierName": null, "customerUsername": "customer1",
         "holderName": "Jordan Lee", "quantity": 2, "unitPrice": "45.50", "totalPrice": "91.00",
-        "status": "CONFIRMED", "createdAt": "2026-10-03T15:00:00.000Z", "refundedAt": null,
+        "status": "CONFIRMED", "createdAt": "2026-10-03T15:00:00.000Z", "refundedAt": null, "seasonPass": null,
         "tickets": [ticket(K1, "AAAA2222BBBB", json!({})), ticket(K2, "CCCC3333DDDD", json!({}))],
         "event": {
             "id": "00000000-0000-4000-8000-0000000000e1", "name": "Early Show",

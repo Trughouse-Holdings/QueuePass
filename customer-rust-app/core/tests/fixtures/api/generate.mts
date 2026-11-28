@@ -3,8 +3,8 @@
 // ids are UUIDs, so each id string is replaced by a fixed UUID made from it. core/tests/
 // contract_types.rs validates each file against its contract schema, then decodes it into the
 // generated Rust type. Run from the repository root:
-//   npx tsx --tsconfig admin-rust-app/core/tests/fixtures/api/tsconfig.json \
-//     admin-rust-app/core/tests/fixtures/api/generate.mts
+//   npx tsx --tsconfig customer-rust-app/core/tests/fixtures/api/tsconfig.json \
+//     customer-rust-app/core/tests/fixtures/api/generate.mts
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -39,8 +39,10 @@ function withUuids(value: unknown, key = ''): unknown {
 
 /**
  * The spec 005 fixtures predate fields the contract later made required. Only those are added, with
- * neutral values: the venue's zone (spec 020) and, on events, no layout, no seated top price, and
- * no check-in removal (specs 038, 032). Nothing a fixture already has is changed.
+ * neutral values: the venue's zone (spec 020); on events, no layout, no seated top price, no
+ * check-in removal (specs 038, 032), and no Season or presale (spec 041); no pass sales in the
+ * sales report and no Season pass on an order (spec 041). Nothing a fixture already has is
+ * changed.
  */
 function completed(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(completed);
@@ -57,11 +59,20 @@ function completed(value: unknown): unknown {
     add('layoutId', null);
     add('priceMax', null);
     add('checkInDetailsRemovedAt', null);
+    // Spec 041 (contract 2.2.0): no Season, so no presale.
+    add('season', null);
+    add('singleSalesOpenAt', null);
   }
   if ('eventId' in o && 'ticketsSold' in o) {
     add('timeZone', 'America/New_York');
     add('checkInDetailsRemovedAt', null);
   }
+  // Spec 041 (R8): no pass sales, per event and in the totals; no order bought on a pass.
+  if ('ticketsSold' in o && 'revenue' in o && 'checkedIn' in o) {
+    add('passTicketsSold', 0);
+    add('passRevenue', '0.00');
+  }
+  if ('customerUsername' in o && 'tickets' in o) add('seasonPass', null);
   return o;
 }
 
