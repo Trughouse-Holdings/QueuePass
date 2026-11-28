@@ -60,33 +60,33 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 
 ## Phase 2: Foundational (blocks every story)
 
-- [ ] T006 *(test first)* Pure rules in `backend/test/unit/season-rules.spec.ts`: name trimmed
+- [X] T006 *(test first)* Pure rules in `backend/test/unit/season-rules.spec.ts`: name trimmed
   1–100, sport and team "both or neither", passes per customer 1–10, `singleSalesOpenAt <=
   salesEndAt`, `salesEndAt` no later than the earliest event not cancelled, the event checks (venue,
   layout or general admission, scheduled, not started), publish readiness (at least 2 events not
   cancelled; every level of the layout priced; at least one name priced; each priced name on every
   event), each returning the field path the contract names (`eventIds.<i>`, `prices.<levelId>`,
   `prices.<tierName>`, R4)
-- [ ] T007 `backend/src/seasons/season-rules.ts` to pass T006 (pure functions, no Prisma)
-- [ ] T008 `backend/src/seasons/dto/season-input.dto.ts` (class-validator, as `SeasonInput`:
+- [X] T007 `backend/src/seasons/season-rules.ts` to pass T006 (pure functions, no Prisma)
+- [X] T008 `backend/src/seasons/dto/season-input.dto.ts` (class-validator, as `SeasonInput`:
   `name` 1–100, `sport` a `Sport` or null, `team` 1–100 or null, `locationId` uuid, `layoutId` uuid
   or null (key required), `salesEndAt` and `singleSalesOpenAt` with an offset (`OFFSET_DATE_TIME`),
   `maxPassesPerCustomer` 1–10 or null, `eventIds` ≤ 50 unique uuids, `prices` ≤ 50
   `SeasonPriceInput` with exactly one of `levelId`/`tierName`)
-- [ ] T009 `backend/src/seasons/season-lock.ts`: `lockSeasonWrite(tx, {locationId, seasonId?,
+- [X] T009 `backend/src/seasons/season-lock.ts`: `lockSeasonWrite(tx, {locationId, seasonId?,
   eventIds})` takes the venue `FOR SHARE` (`lockVenueShared`; on update both the stored and the
   requested venue), the Season `FOR UPDATE`, then every event `FOR UPDATE` in id order; re-reads the
   Season's venue under the lock and retries once if it moved, as `updateEvent`'s `VenueMoved` (R2);
   widen `checkEventTime`'s field type in `backend/src/events/event-time.ts` to accept `salesEndAt`
   and `singleSalesOpenAt` (R16)
-- [ ] T010 `backend/src/seasons/season-view.ts`: `toSeason(row, {admin})` building the contract's
+- [X] T010 `backend/src/seasons/season-view.ts`: `toSeason(row, {admin})` building the contract's
   `Season` (venue name and zone, layout name, events by `startsAt`, prices by level rank or name,
   `passesSold` = active passes, `passRevenue` = sum of confirmed pass orders, both `null` unless
   `admin`; `salesOpen` by the database's clock; lists by earliest event start, then name, Seasons
   with no events last)
-- [ ] T011 `backend/src/seasons/seasons.module.ts`, `seasons.controller.ts` (empty handlers wired),
+- [X] T011 `backend/src/seasons/seasons.module.ts`, `seasons.controller.ts` (empty handlers wired),
   registered in `backend/src/app.module.ts`
-- [ ] T011a *(test first)* Error mapping in `backend/src/common/filters/prisma-exception.filter.ts`
+- [X] T011a *(test first)* Error mapping in `backend/src/common/filters/prisma-exception.filter.ts`
   (R1): a violation of `SeasonEvent_eventId_fkey` is `409 EVENT_IN_SEASON` and of
   `Season_layoutId_fkey` `409 LAYOUT_IN_USE`, for Prisma `P2003` and raw-query `23503`, not the
   venue fallback; unit test beside the filter's existing tests
