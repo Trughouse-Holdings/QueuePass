@@ -2062,19 +2062,17 @@ export interface components {
             checkInDetailsRemovedAt: string | null;
             /**
              * @description Feature 041. The Season the event belongs to, cancelled Seasons included; `null` if
-             *     none. Always sent once 041 is implemented; not listed as required so this contract can
-             *     merge ahead of the implementation with the suite green. Clients treat a missing value
-             *     as `null`.
+             *     none. Required from 2.2.0 once implemented (feature 041's implementation).
              */
-            season?: components["schemas"]["SeasonRef"] | null;
+            season: components["schemas"]["SeasonRef"] | null;
             /**
              * Format: date-time
              * @description Feature 041. While the event's Season is on sale and its presale has not ended, when
              *     single tickets go on sale (until then only passes sell, `409 SEASON_PRESALE`); `null`
-             *     otherwise. Always sent once 041 is implemented; clients treat a missing value as
-             *     `null`.
+             *     otherwise, by the database's clock. Required from 2.2.0 once implemented (feature
+             *     041's implementation).
              */
-            singleSalesOpenAt?: string | null;
+            singleSalesOpenAt: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -2410,9 +2408,9 @@ export interface components {
             tickets: components["schemas"]["Ticket"][];
             /**
              * @description Feature 041. The Season pass this order was bought on; `null` for a single-ticket
-             *     order. Always sent once 041 is implemented; clients treat a missing value as `null`.
+             *     order. Required from 2.2.0 once implemented (feature 041's implementation).
              */
-            seasonPass?: components["schemas"]["OrderSeasonPass"] | null;
+            seasonPass: components["schemas"]["OrderSeasonPass"] | null;
         };
         OrderInput: {
             /**
@@ -3237,14 +3235,15 @@ export interface components {
             levels: components["schemas"]["LevelSales"][];
             /**
              * @description Feature 041. Of `ticketsSold`, the valid tickets of orders bought on a Season pass.
-             *     Always sent once 041 is implemented; clients treat a missing value as 0.
+             *     Required from 2.2.0 once implemented (feature 041's implementation).
              */
-            passTicketsSold?: number;
+            passTicketsSold: number;
             /**
              * @description Feature 041. Of `revenue`, the confirmed orders bought on a Season pass (each its share
-             *     of the pass price). Always sent once 041 is implemented; a missing value is '0.00'.
+             *     of the pass price). Required from 2.2.0 once implemented (feature 041's
+             *     implementation).
              */
-            passRevenue?: string;
+            passRevenue: string;
         };
         SalesReport: {
             /** Format: date-time */
@@ -3259,9 +3258,9 @@ export interface components {
                 /** @example 45.00 */
                 revenue: string;
                 /** @description Feature 041. As `EventSales.passTicketsSold`, over all events. */
-                passTicketsSold?: number;
+                passTicketsSold: number;
                 /** @description Feature 041. As `EventSales.passRevenue`, over all events. */
-                passRevenue?: string;
+                passRevenue: string;
             };
             events: components["schemas"]["EventSales"][];
         };
@@ -3401,7 +3400,10 @@ export interface components {
             /** Format: uuid */
             levelId?: string;
             tierName?: string;
-            /** @example 640.00 */
+            /**
+             * @description At most 99999999.99, the largest amount a price column holds.
+             * @example 640.00
+             */
             price: string;
         };
         /**

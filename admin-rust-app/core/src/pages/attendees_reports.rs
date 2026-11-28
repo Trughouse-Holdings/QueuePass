@@ -89,6 +89,17 @@ pub fn check_in_cell(removed: bool, checked: usize, tickets: usize) -> String {
     }
 }
 
+/// Spec 041 FR-020 (R8): the attendee list's Pass cell, the Season of an order bought on a pass,
+/// or nothing.
+pub fn pass_cell(season_name: Option<&str>) -> String {
+    season_name.unwrap_or_default().to_string()
+}
+
+/// Spec 041 FR-020: the total row's Sold cell: "75 of 300".
+pub fn total_sold_cell(sold: u64, capacity: u64) -> String {
+    format!("{} of {}", count(sold), count(capacity))
+}
+
 /// The Sold cell's figure (parity R1): "1,200 of 5,000 (24%)".
 pub fn sold_cell(sold: u64, capacity: u64) -> String {
     format!(

@@ -8,8 +8,12 @@ import {
   type UsTimeZone,
 } from '@queuepass/shared';
 
-/** Spec 025: doors-open times follow the same zone rules as the start and end. */
-export type EventTimeField = 'startsAt' | 'endsAt' | 'doorsOpenAt';
+/**
+ * Spec 025: doors-open times follow the same zone rules as the start and end. Spec 041 (research
+ * R16): so do a Season's pass sales end and the time its single tickets go on sale.
+ */
+export type EventTimeField =
+  'startsAt' | 'endsAt' | 'doorsOpenAt' | 'salesEndAt' | 'singleSalesOpenAt';
 
 /** Spec 020 research R9: the DTO pattern for an RFC 3339 date-time with an offset. */
 export const OFFSET_DATE_TIME =

@@ -101,7 +101,7 @@ describe('Download on the Reports page', () => {
     const lines = csv.trim().split('\r\n');
     // A header, one row per event, then Total; no row per level.
     expect(lines).toHaveLength(1 + SEATED_REPORT.events.length + 1);
-    expect(lines[1]).toMatch(/^Season Opener,Yum Center,.*,25,100,1321\.50,12,/);
+    expect(lines[1]).toMatch(/^Season Opener,Yum Center,.*,25,100,1321\.50,0,0\.00,12,/);
     expect(csv).not.toContain('Courtside');
   });
 

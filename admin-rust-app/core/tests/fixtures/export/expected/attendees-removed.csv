@@ -1,8 +1,8 @@
-﻿Order placed,Customer,Name on tickets,Tier,Price level,Seat,Ticket code,Ticket status,Checked in,Order status,Price,Order,Exported at
-2026-09-30 10:00,customer3,Jordan Lee,VIP,,,ABCDEFGH2345,Valid,,Confirmed,84.30,AAAAAAAA,2026-11-12T08:20:00-08:00
-2026-09-30 10:00,customer3,Jordan Lee,VIP,,,JKLMNPQR6789,Valid,,Confirmed,84.30,AAAAAAAA,2026-11-12T08:20:00-08:00
-2026-10-01 20:30,customer2,"'=SUM(1,1)",General admission,,,STUVWXYZ2345,Valid,,Confirmed,45.00,BBBBBBBB,2026-11-12T08:20:00-08:00
-2026-10-03 07:00,customer3,Zoë O’Brien,Floor,Floor,"Section A, Row C, Seat 7",MNPQRSTU2345,Valid,,Confirmed,60.00,CCCCCCCC,2026-11-12T08:20:00-08:00
-2026-10-04 07:00,customer1,No name on ticket,General,,,VWXYZ2345678,Void,,Refunded,45.00,DDDDDDDD,2026-11-12T08:20:00-08:00
-2026-10-07 07:00,customer4,Sam Park,,Courtside,"Section 115, Row D, Seat 2",BCDFGHJK2345,Valid,,Confirmed,95.00,EEEEEEEE,2026-11-12T08:20:00-08:00
-2026-10-07 07:00,customer4,Sam Park,,Lower sideline,"Section 115, Row F, Seat 7",LMNPQRST6789,Valid,,Confirmed,60.00,EEEEEEEE,2026-11-12T08:20:00-08:00
+﻿Order placed,Customer,Name on tickets,Tier,Price level,Seat,Ticket code,Ticket status,Checked in,Order status,Pass,Price,Order,Exported at
+2026-09-30 10:00,customer3,Jordan Lee,VIP,,,ABCDEFGH2345,Valid,,Confirmed,,84.30,AAAAAAAA,2026-11-12T08:20:00-08:00
+2026-09-30 10:00,customer3,Jordan Lee,VIP,,,JKLMNPQR6789,Valid,,Confirmed,,84.30,AAAAAAAA,2026-11-12T08:20:00-08:00
+2026-10-01 20:30,customer2,"'=SUM(1,1)",General admission,,,STUVWXYZ2345,Valid,,Confirmed,,45.00,BBBBBBBB,2026-11-12T08:20:00-08:00
+2026-10-03 07:00,customer3,Zoë O’Brien,Floor,Floor,"Section A, Row C, Seat 7",MNPQRSTU2345,Valid,,Confirmed,,60.00,CCCCCCCC,2026-11-12T08:20:00-08:00
+2026-10-04 07:00,customer1,No name on ticket,General,,,VWXYZ2345678,Void,,Refunded,,45.00,DDDDDDDD,2026-11-12T08:20:00-08:00
+2026-10-07 07:00,customer4,Sam Park,,Courtside,"Section 115, Row D, Seat 2",BCDFGHJK2345,Valid,,Confirmed,,95.00,EEEEEEEE,2026-11-12T08:20:00-08:00
+2026-10-07 07:00,customer4,Sam Park,,Lower sideline,"Section 115, Row F, Seat 7",LMNPQRST6789,Valid,,Confirmed,,60.00,EEEEEEEE,2026-11-12T08:20:00-08:00

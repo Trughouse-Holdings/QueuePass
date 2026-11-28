@@ -149,7 +149,7 @@ fn orders() -> Vec<MyOrder> {
         "eventId": "00000000-0000-4000-8000-0000000000e1", "tierId": null, "tierName": null,
         "customerUsername": "c", "holderName": "Jordan Lee", "quantity": 1,
         "unitPrice": "45.50", "totalPrice": "45.50", "status": "CONFIRMED",
-        "createdAt": "2026-10-03T15:00:00.000Z", "refundedAt": null,
+        "createdAt": "2026-10-03T15:00:00.000Z", "refundedAt": null, "seasonPass": null,
         "tickets": [{ "id": TICKET, "code": "AAAA2222BBBB", "status": "VALID",
                       "checkedInAt": null, "seat": null, "price": "45.50", "levelName": null }],
         "event": { "id": "00000000-0000-4000-8000-0000000000e1", "name": "Early Show",

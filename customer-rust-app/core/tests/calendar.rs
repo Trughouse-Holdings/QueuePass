@@ -243,7 +243,7 @@ fn order(status: &str, ticket_status: &str) -> MyOrder {
         "id": "00000000-0000-4000-8000-0000000000f1",
         "eventId": EVENT_ID, "tierId": null, "tierName": null, "customerUsername": "c",
         "holderName": "Jordan Lee", "quantity": 1, "unitPrice": "45.50", "totalPrice": "45.50",
-        "status": "CONFIRMED", "createdAt": "2026-10-03T15:00:00.000Z", "refundedAt": null,
+        "status": "CONFIRMED", "createdAt": "2026-10-03T15:00:00.000Z", "refundedAt": null, "seasonPass": null,
         "tickets": [{ "id": "00000000-0000-4000-8000-0000000000a1", "code": "AAAA2222BBBB",
                       "status": ticket_status, "checkedInAt": null, "seat": null,
                       "price": "45.50", "levelName": null }],

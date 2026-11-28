@@ -48,7 +48,12 @@ import { ticketCode } from './ticket-code';
 import { ticketSeat, type SoldSeat } from '../common/ticket-seat';
 
 // Spec 018 research R1: queries leave entrySecret out (PrismaService's global omit).
-type OrderRow = Order & { tier: TicketTier | null; tickets: Omit<Ticket, 'entrySecret'>[] };
+type OrderRow = Order & {
+  tier: TicketTier | null;
+  tickets: Omit<Ticket, 'entrySecret'>[];
+  /** Spec 041 (research R8): the pass it was bought on, with its Season's name. */
+  seasonPass: { id: string; seasonId: string; season: { name: string } } | null;
+};
 
 /** API shape (contracts/openapi.yaml `Order`): amounts as two-decimal strings. */
 export interface OrderResponse {
@@ -81,6 +86,8 @@ export interface OrderResponse {
     /** Spec 038 FR-030, research R17: its level's name as sold; `null` for general admission. */
     levelName: string | null;
   }[];
+  /** Spec 041 FR-020 (research R8): the Season pass it was bought on; `null` for a single order. */
+  seasonPass: { id: string; seasonId: string; seasonName: string } | null;
 }
 
 export function toOrderResponse(o: OrderRow): OrderResponse {
@@ -106,6 +113,13 @@ export function toOrderResponse(o: OrderRow): OrderResponse {
       price: t.price.toFixed(2),
       levelName: t.levelName,
     })),
+    seasonPass: o.seasonPass
+      ? {
+          id: o.seasonPass.id,
+          seasonId: o.seasonPass.seasonId,
+          seasonName: o.seasonPass.season.name,
+        }
+      : null,
   };
 }
 
@@ -129,6 +143,8 @@ export interface MyOrderResponse extends OrderResponse {
 const ORDER_INCLUDE = {
   tier: true,
   tickets: { orderBy: { code: 'asc' } },
+  // Spec 041 (research R8): the Season pass an order was bought on, for `Order.seasonPass`.
+  seasonPass: { select: { id: true, seasonId: true, season: { select: { name: true } } } },
 } satisfies Prisma.OrderInclude;
 
 const isUniqueViolationOn = (err: unknown, column: string): boolean =>

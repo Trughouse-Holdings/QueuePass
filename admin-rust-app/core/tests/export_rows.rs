@@ -251,6 +251,8 @@ fn attendee_columns_are_those_of_fr_004_in_order_with_their_kinds() {
         ("Ticket status", CellKind::Text),
         ("Checked in", CellKind::DateTime),
         ("Order status", CellKind::Text),
+        // Spec 041 (R8): the Season of an order bought on a pass.
+        ("Pass", CellKind::Text),
         ("Price", CellKind::Money),
         ("Order", CellKind::Text),
     ];
@@ -278,11 +280,17 @@ fn attendee_rows_are_one_per_ticket_in_page_order_in_the_venue_zone() {
             t("Valid"),
             d("2026-11-01T16:45"),
             t("Confirmed"),
+            t(""),
             m("84.30"),
             t("AAAAAAAA"),
         ]
     );
     assert_eq!(rows[2][3], t("General admission"));
+    // Spec 041 (R8): an order bought on a pass names its Season.
+    assert_eq!(
+        rows[2][9..12],
+        [t("Confirmed"), t("Louisville Hoops"), m("45.00")]
+    );
     // Spec 038 R17: a carried-over ticket's level is its type's name; the row by its label.
     assert_eq!(
         rows[3][3..6],
@@ -290,7 +298,7 @@ fn attendee_rows_are_one_per_ticket_in_page_order_in_the_venue_zone() {
     );
     // R13b: a void ticket's check-in stays empty, as the page shows only "(void)".
     assert_eq!(rows[4][2], t("No name on ticket"));
-    assert_eq!(rows[4][7..10], [t("Void"), d(""), t("Refunded")]);
+    assert_eq!(rows[4][7..11], [t("Void"), d(""), t("Refunded"), t("")]);
     // Spec 038 FR-030: a seated order has no tier; each ticket names its level and own price.
     assert_eq!(
         rows[5],
@@ -305,6 +313,7 @@ fn attendee_rows_are_one_per_ticket_in_page_order_in_the_venue_zone() {
             t("Valid"),
             d(""),
             t("Confirmed"),
+            t(""),
             m("95.00"),
             t("EEEEEEEE"),
         ]
@@ -340,7 +349,7 @@ fn prices_each_ticket_at_its_own_price_whatever_the_unit_price() {
     seated.unit_price = Some("77.50".into());
     let rows = attendee_table(&event, &[seated], at(MADE_AT), "admin1", "UTC", None).rows;
     assert_eq!(
-        rows.iter().map(|r| r[10].clone()).collect::<Vec<_>>(),
+        rows.iter().map(|r| r[11].clone()).collect::<Vec<_>>(),
         [m("95.00"), m("60.00")]
     );
 }
@@ -354,7 +363,7 @@ fn prices_add_up_to_the_pages_order_totals() {
     let sum: i64 = table()
         .rows
         .iter()
-        .map(|r| match &r[10] {
+        .map(|r| match &r[11] {
             Cell::Money(v) => cents(v),
             other => panic!("{other:?}"),
         })
@@ -518,6 +527,9 @@ fn sales_columns_are_those_of_fr_005_in_order_with_their_kinds() {
             ("Tickets sold", CellKind::Count),
             ("Ticket capacity", CellKind::Count),
             ("Revenue", CellKind::Money),
+            // Spec 041 (R8): after Revenue.
+            ("Pass tickets", CellKind::Count),
+            ("Pass revenue", CellKind::Money),
             ("Checked in", CellKind::Count),
         ]
     );
@@ -538,6 +550,8 @@ fn sales_rows_are_one_per_event_each_in_its_own_zone_then_total() {
                 n(25),
                 n(100),
                 m("1321.50"),
+                n(3),
+                m("100.00"),
                 n(12),
             ],
             vec![
@@ -550,6 +564,8 @@ fn sales_rows_are_one_per_event_each_in_its_own_zone_then_total() {
                 n(200),
                 m("3000.00"),
                 n(0),
+                m("0.00"),
+                n(0),
             ],
             vec![
                 t_("Rained Out"),
@@ -559,6 +575,8 @@ fn sales_rows_are_one_per_event_each_in_its_own_zone_then_total() {
                 t_("Cancelled"),
                 n(0),
                 n(50),
+                m("0.00"),
+                n(0),
                 m("0.00"),
                 n(0),
             ],
@@ -571,6 +589,8 @@ fn sales_rows_are_one_per_event_each_in_its_own_zone_then_total() {
                 n(75),
                 n(300),
                 m("4321.50"),
+                n(3),
+                m("100.00"),
                 n(12),
             ],
         ]
@@ -618,8 +638,8 @@ fn sales_gives_a_removed_events_row_the_reports_kept_count() {
     let mut report = sales_report();
     report.events[0].checked_in = 3;
     let rows = sales_table(&report, "admin2", "America/New_York").rows;
-    assert_eq!(rows[0][8], n(3));
-    assert_eq!(rows[0].len(), 9);
+    assert_eq!(rows[0][10], n(3));
+    assert_eq!(rows[0].len(), 11);
 }
 
 #[test]
@@ -628,7 +648,11 @@ fn a_seated_event_keeps_one_row_per_event_with_the_pages_figures() {
     let table = table_of(&input("sales-seated"));
     assert_eq!(table.rows.len(), 3 + 1);
     assert_eq!(table.rows[0][0], t("Season Opener"));
-    assert_eq!(table.rows[0][5..9], [n(25), n(100), m("1321.50"), n(12)]);
+    // Spec 041: a report without pass figures (an older Backend) shows none, as `?? 0`.
+    assert_eq!(
+        table.rows[0][5..11],
+        [n(25), n(100), m("1321.50"), n(0), m("0.00"), n(12)]
+    );
     // Made in the admin's zone, whatever it is: London in October is GMT+1 (X4).
     assert_eq!(table.subtitle[0], "Made at Oct 1, 2026, 1:00 PM GMT+1");
     assert_eq!(table.subtitle[1], "Made by admin1");

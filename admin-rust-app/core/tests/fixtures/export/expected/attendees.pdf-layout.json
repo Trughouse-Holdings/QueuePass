@@ -17,6 +17,7 @@
     "Ticket status",
     "Checked in",
     "Order status",
+    "Pass",
     "Price",
     "Order"
   ],
@@ -32,6 +33,7 @@
       "Valid",
       "2026-11-01 16:45",
       "Confirmed",
+      "",
       "$84.30",
       "AAAAAAAA"
     ],
@@ -46,6 +48,7 @@
       "Valid",
       "",
       "Confirmed",
+      "",
       "$84.30",
       "AAAAAAAA"
     ],
@@ -60,6 +63,7 @@
       "Valid",
       "",
       "Confirmed",
+      "Louisville Hoops",
       "$45.00",
       "BBBBBBBB"
     ],
@@ -74,6 +78,7 @@
       "Valid",
       "",
       "Confirmed",
+      "",
       "$60.00",
       "CCCCCCCC"
     ],
@@ -88,6 +93,7 @@
       "Void",
       "",
       "Refunded",
+      "",
       "$45.00",
       "DDDDDDDD"
     ],
@@ -102,6 +108,7 @@
       "Valid",
       "",
       "Confirmed",
+      "",
       "$95.00",
       "EEEEEEEE"
     ],
@@ -116,6 +123,7 @@
       "Valid",
       "",
       "Confirmed",
+      "",
       "$60.00",
       "EEEEEEEE"
     ],
@@ -130,6 +138,7 @@
       "Valid",
       "",
       "Confirmed",
+      "",
       "$45.00",
       "FFFFFFFF"
     ],
@@ -144,6 +153,7 @@
       "Valid",
       "",
       "Confirmed",
+      "=Hoops, \"Lower\" 2026–27",
       "$45.00",
       "11111111"
     ],
@@ -158,6 +168,7 @@
       "Valid",
       "2026-11-01 01:30",
       "Confirmed",
+      "",
       "$45.00",
       "22222222"
     ],
@@ -172,6 +183,7 @@
       "Valid",
       "",
       "Confirmed",
+      "",
       "$1,234.50",
       "33333333"
     ],
@@ -186,6 +198,7 @@
       "Valid",
       "",
       "Confirmed",
+      "",
       "$1,234.50",
       "33333333"
     ],
@@ -200,9 +213,10 @@
       "Valid",
       "",
       "Confirmed",
+      "",
       "$84.30",
       "44444444"
     ]
   ],
-  "nowrap": [true, false, false, false, false, false, true, false, true, false, true, true]
+  "nowrap": [true, false, false, false, false, false, true, false, true, false, false, true, true]
 }

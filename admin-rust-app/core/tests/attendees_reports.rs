@@ -8,7 +8,7 @@ use admin_rust_core::{
     export::rows,
     pages::attendees_reports::{
         attendee_summary, check_in_cell, count, export_input, meter_fill_style, order_levels,
-        share, sold_cell, tier_cell,
+        pass_cell, share, sold_cell, tier_cell, total_sold_cell,
     },
 };
 use serde::de::DeserializeOwned;
@@ -52,6 +52,41 @@ fn the_pages_read_the_generated_values_into_the_export_inputs() {
     assert_eq!(input.generated_at, report.generated_at);
     assert_eq!(input.events.len(), report.events.len());
     assert_eq!(input.totals.revenue, *report.totals.revenue);
+    // Spec 041 (R8): the pass figures carry over, per event and in the totals.
+    assert_eq!(
+        input.totals.pass_tickets_sold,
+        report.totals.pass_tickets_sold as i64
+    );
+    assert_eq!(input.totals.pass_revenue, *report.totals.pass_revenue);
+    assert_eq!(input.events[0].pass_revenue, *report.events[0].pass_revenue);
+
+    // Spec 041 (R8): an order bought on a pass carries its Season's name into the export.
+    let mut on_pass = serde_json::to_value(&order).unwrap();
+    on_pass["seasonPass"] = serde_json::json!({
+        "id": "c0000000-0000-4000-8000-00000000000a",
+        "seasonId": "c0000000-0000-4000-8000-00000000000c",
+        "seasonName": "Louisville Hoops"
+    });
+    let order: types::Order = serde_json::from_value(on_pass).unwrap();
+    let input: rows::Order = export_input(&order).expect("an order on a pass fits");
+    assert_eq!(
+        input.season_pass.map(|p| p.season_name).as_deref(),
+        Some("Louisville Hoops")
+    );
+}
+
+#[test]
+fn the_pass_cell_names_the_season_or_is_empty() {
+    // Spec 041 FR-020 (`pass-sales.test.tsx`): the attendee list's Pass column.
+    assert_eq!(pass_cell(Some("Louisville Hoops")), "Louisville Hoops");
+    assert_eq!(pass_cell(None), "");
+}
+
+#[test]
+fn the_total_rows_sold_cell_has_the_counts() {
+    // Spec 041 FR-020: the sales report's total row, under the events.
+    assert_eq!(total_sold_cell(75, 300), "75 of 300");
+    assert_eq!(total_sold_cell(1200, 25_000), "1,200 of 25,000");
 }
 
 #[test]

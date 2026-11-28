@@ -206,7 +206,18 @@ fn EventFormPage(id: Option<String>) -> impl IntoView {
         let load_id = event_id.clone();
         spawn_local(async move {
             match auth.api().send::<EventLoad>(ops::get_event(&load_id)).await {
-                Ok(event) => edit(state, |s| s.event_loaded(&event, pending_files)),
+                Ok(event) => {
+                    let season_id = event.season.as_ref().map(|s| s.id.clone());
+                    edit(state, |s| s.event_loaded(&event, pending_files));
+                    // Spec 041 FR-019: whether the Season holds the venue and seating (not
+                    // cancelled), read from the Season itself; a failed read keeps them locked.
+                    if let Some(season_id) = season_id
+                        && let Ok(season) = auth.api().get_season(&season_id).await
+                    {
+                        let cancelled = season.status == types::SeasonStatus::Cancelled;
+                        edit(state, |s| s.season_status_loaded(&season_id, cancelled));
+                    }
+                }
                 Err(e) => edit(state, |s| s.event_failed(e)),
             }
         });
@@ -401,10 +412,27 @@ fn VenueAndTimes(state: FormSignal) -> impl IntoView {
     let times_error: Memo<Option<ApiError>> =
         Memo::new(move |_| state.with(|s| s.times_refusal().then(|| s.error.clone()).flatten()));
     let conflict = Memo::new(move |_| state.with(|s| s.conflict_parts()));
+    // Spec 041 FR-007, FR-019: the Season the event is in, and why the venue can't change.
+    let in_season = Memo::new(move |_| {
+        state.with(|s| s.season.as_ref().map(|x| (x.id.clone(), x.name.clone())))
+    });
+    let season_lock = Memo::new(move |_| state.with(|s| s.season_lock().map(str::to_string)));
 
     view! {
         <fieldset class="field">
             <legend>"Venue and times"</legend>
+            {move || {
+                in_season
+                    .get()
+                    .map(|(id, name)| {
+                        view! {
+                            <p class="note" data-testid="in-season">
+                                "In season: "
+                                <AppLink href=format!("/seasons/{id}")>{name}</AppLink>
+                            </p>
+                        }
+                    })
+            }}
             <div class="field">
                 <label for="name">"Event name"</label>
                 <input
@@ -428,6 +456,7 @@ fn VenueAndTimes(state: FormSignal) -> impl IntoView {
                 <select
                     id="locationId"
                     prop:value=location
+                    disabled=move || season_lock.get().is_some()
                     on:blur=move |_| edit(state, |s| s.blur("locationId"))
                     on:change=move |ev| {
                         let value = event_target_value(&ev);
@@ -455,6 +484,7 @@ fn VenueAndTimes(state: FormSignal) -> impl IntoView {
                             .collect_view()
                     }}
                 </select>
+                {move || season_lock.get().map(|reason| view! { <span class="field__hint">{reason}</span> })}
                 {hint(|| "locationId-error".into(), move || state.with(|s| s.field_hint("locationId")))}
             </div>
 

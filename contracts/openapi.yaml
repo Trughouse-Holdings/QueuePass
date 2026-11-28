@@ -2161,7 +2161,6 @@ paths:
         (`salesOpen`). Ordered by the start of each Season's earliest event, then name; Seasons
         with no events last, by name.
       operationId: listSeasons
-      x-planned: '041'
       x-required-roles: []
       responses:
         '200':
@@ -2183,7 +2182,6 @@ paths:
         also when two creates take the same event at once. Times are checked as event times are
         (feature 020: `LOCAL_TIME_SKIPPED`, `UTC_OFFSET_MISMATCH`, with `details.field`).
       operationId: createSeason
-      x-planned: '041'
       x-required-roles: [queuepass-admin]
       requestBody:
         required: true
@@ -2216,7 +2214,6 @@ paths:
         Feature 041. Admins can read any Season; any other caller only one on sale (`404`
         otherwise).
       operationId: getSeason
-      x-planned: '041'
       x-required-roles: []
       responses:
         '200':
@@ -2243,7 +2240,6 @@ paths:
         repriced. Prices may change at any time; passes, orders and tickets already sold keep their
         prices.
       operationId: updateSeason
-      x-planned: '041'
       x-required-roles: [queuepass-admin]
       requestBody:
         required: true
@@ -2268,7 +2264,6 @@ paths:
         Feature 041. Deletes a draft with its event list and prices; its events can then join
         another Season. Refused `409 SEASON_NOT_DRAFT` for a Season on sale or cancelled.
       operationId: deleteSeason
-      x-planned: '041'
       x-required-roles: [queuepass-admin]
       responses:
         '204': { description: Deleted. }
@@ -2297,7 +2292,6 @@ paths:
         or after the start of its earliest event (`salesEndAt`). Refused `409 SEASON_NOT_DRAFT` when it is
         not a draft.
       operationId: publishSeason
-      x-planned: '041'
       x-required-roles: [queuepass-admin]
       responses:
         '200':
@@ -2331,7 +2325,6 @@ paths:
         presale. Refused `409 SEASON_NOT_ON_SALE` for a draft (delete it instead) and `409
         SEASON_CANCELLED` for a cancelled Season.
       operationId: cancelSeason
-      x-planned: '041'
       x-required-roles: [queuepass-admin]
       responses:
         '200':
@@ -2895,6 +2888,8 @@ components:
           layoutId,
           priceMax,
           checkInDetailsRemovedAt,
+          season,
+          singleSalesOpenAt,
           createdAt,
           updatedAt,
         ]
@@ -2989,17 +2984,15 @@ components:
             - type: 'null'
           description: |
             Feature 041. The Season the event belongs to, cancelled Seasons included; `null` if
-            none. Always sent once 041 is implemented; not listed as required so this contract can
-            merge ahead of the implementation with the suite green. Clients treat a missing value
-            as `null`.
+            none. Required from 2.2.0 once implemented (feature 041's implementation).
         singleSalesOpenAt:
           type: [string, 'null']
           format: date-time
           description: |
             Feature 041. While the event's Season is on sale and its presale has not ended, when
             single tickets go on sale (until then only passes sell, `409 SEASON_PRESALE`); `null`
-            otherwise. Always sent once 041 is implemented; clients treat a missing value as
-            `null`.
+            otherwise, by the database's clock. Required from 2.2.0 once implemented (feature
+            041's implementation).
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -3374,6 +3367,7 @@ components:
           createdAt,
           refundedAt,
           tickets,
+          seasonPass,
         ]
       properties:
         id: { type: string, format: uuid }
@@ -3413,7 +3407,7 @@ components:
             - type: 'null'
           description: |
             Feature 041. The Season pass this order was bought on; `null` for a single-ticket
-            order. Always sent once 041 is implemented; clients treat a missing value as `null`.
+            order. Required from 2.2.0 once implemented (feature 041's implementation).
 
     OrderInput:
       type: object
@@ -4507,6 +4501,8 @@ components:
           revenue,
           tiers,
           levels,
+          passTicketsSold,
+          passRevenue,
         ]
       properties:
         eventId: { type: string, format: uuid }
@@ -4549,13 +4545,14 @@ components:
           minimum: 0
           description: |
             Feature 041. Of `ticketsSold`, the valid tickets of orders bought on a Season pass.
-            Always sent once 041 is implemented; clients treat a missing value as 0.
+            Required from 2.2.0 once implemented (feature 041's implementation).
         passRevenue:
           type: string
           pattern: '^\d+\.\d{2}$'
           description: |
             Feature 041. Of `revenue`, the confirmed orders bought on a Season pass (each its share
-            of the pass price). Always sent once 041 is implemented; a missing value is '0.00'.
+            of the pass price). Required from 2.2.0 once implemented (feature 041's
+            implementation).
 
     SalesReport:
       type: object
@@ -4564,7 +4561,8 @@ components:
         generatedAt: { type: string, format: date-time }
         totals:
           type: object
-          required: [events, ticketCapacity, ticketsSold, checkedIn, revenue]
+          required:
+            [events, ticketCapacity, ticketsSold, checkedIn, revenue, passTicketsSold, passRevenue]
           properties:
             events: { type: integer, minimum: 0, description: Scheduled events. }
             ticketCapacity:
@@ -4772,7 +4770,11 @@ components:
       properties:
         levelId: { type: string, format: uuid }
         tierName: { type: string, minLength: 1, maxLength: 100 }
-        price: { type: string, pattern: '^\d+(\.\d{1,2})?$', example: '640.00' }
+        price:
+          type: string
+          pattern: '^\d{1,8}(\.\d{1,2})?$'
+          example: '640.00'
+          description: At most 99999999.99, the largest amount a price column holds.
 
     Season:
       description: |

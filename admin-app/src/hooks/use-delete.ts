@@ -16,7 +16,7 @@ export function useDelete({
   run,
   listPath,
 }: {
-  kind: 'venue' | 'event';
+  kind: 'venue' | 'event' | 'season';
   name: string;
   run: () => Promise<void>;
   listPath: string;

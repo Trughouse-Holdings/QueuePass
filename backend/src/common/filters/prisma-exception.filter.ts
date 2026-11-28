@@ -65,6 +65,45 @@ function isImagePositionViolation(exception: unknown): boolean {
   return false;
 }
 
+/** PostgreSQL SQLSTATE for a foreign-key violation. */
+const PG_FOREIGN_KEY_VIOLATION = '23503';
+
+/**
+ * Spec 041 research R1 (review S1): the Season foreign keys a delete can trip. The services refuse
+ * first, naming the Season; these cover what slips past them (`P2003` from a model write, `23503`
+ * from a raw statement), instead of the venue fallback below.
+ */
+const SEASON_FOREIGN_KEYS: { constraint: string; code: ErrorCode; message: string }[] = [
+  {
+    constraint: 'SeasonEvent_eventId_fkey',
+    code: 'EVENT_IN_SEASON',
+    message: 'Cannot delete this event; it belongs to a Season.',
+  },
+  {
+    constraint: 'Season_layoutId_fkey',
+    code: 'LAYOUT_IN_USE',
+    message: 'Cannot delete this layout; a Season uses it.',
+  },
+];
+
+function seasonForeignKey(exception: unknown): (typeof SEASON_FOREIGN_KEYS)[number] | null {
+  let text: string | null = null;
+  if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+    const meta = (exception.meta ?? {}) as { code?: unknown; message?: unknown };
+    if (exception.code === 'P2003') text = JSON.stringify(exception.meta ?? {});
+    else if (exception.code === 'P2010' && meta.code === PG_FOREIGN_KEY_VIOLATION) {
+      text = typeof meta.message === 'string' ? meta.message : exception.message;
+    }
+  } else if (
+    exception instanceof Prisma.PrismaClientUnknownRequestError &&
+    exception.message.includes(PG_FOREIGN_KEY_VIOLATION)
+  ) {
+    text = exception.message;
+  }
+  if (text === null) return null;
+  return SEASON_FOREIGN_KEYS.find((k) => text.includes(k.constraint)) ?? null;
+}
+
 /**
  * body-parser's errors carry a 4xx `status` and a `type` such as `entity.too.large` or
  * `entity.parse.failed`; as an HttpException of that status, or null for anything else.
@@ -188,6 +227,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
             "The event's images changed since you loaded them. Check them and try again.",
           ),
         );
+      return;
+    }
+
+    const seasonKey = seasonForeignKey(exception);
+    if (seasonKey) {
+      response.status(HttpStatus.CONFLICT).json(envelope(seasonKey.code, seasonKey.message));
       return;
     }
 

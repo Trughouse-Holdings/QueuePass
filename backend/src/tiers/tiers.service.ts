@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Prisma, TicketTier } from '@prisma/client';
 import { conflict, eventCancelled } from '../common/conflict';
+import { holdsEvent, inSeason, isPricedName, seasonOfEvent } from '../seasons/event-season';
 import { LOCKING_TX, LockedEvent, lockEvent, ticketsSold } from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
 import { closeHolds, closeRunOut, fromHeld, liveHolds } from '../reservations/holds';
@@ -84,6 +85,20 @@ export class TiersService {
       const event = await lockEvent(tx, eventId);
       if (event.status === 'CANCELLED') throw eventCancelled(event.name);
       const tier = await this.requireTier(tx, eventId, tierId);
+      // Spec 041 FR-007 (R9): the name a Season prices stays, ignoring case.
+      const season = await seasonOfEvent(tx, eventId);
+      if (
+        holdsEvent(season) &&
+        dto.name !== undefined &&
+        isPricedName(season, tier.name) &&
+        dto.name.trim().toLowerCase() !== tier.name.trim().toLowerCase()
+      ) {
+        throw inSeason(
+          season,
+          'name',
+          `${tier.name} is the ticket type ${season.name} sells passes for, so it can’t be renamed.`,
+        );
+      }
       if (event.reservedSeating && dto.quantity !== undefined) {
         throw new BadRequestException({
           message: ["quantity follows this tier's sections while reserved seating is on"],
@@ -111,6 +126,14 @@ export class TiersService {
       const event = await lockEvent(tx, eventId);
       if (event.status === 'CANCELLED') throw eventCancelled(event.name);
       const tier = await this.requireTier(tx, eventId, tierId);
+      const season = await seasonOfEvent(tx, eventId);
+      if (holdsEvent(season) && isPricedName(season, tier.name)) {
+        throw inSeason(
+          season,
+          'tierId',
+          `${tier.name} is the ticket type ${season.name} sells passes for, so it can’t be removed.`,
+        );
+      }
       // Spec 005 FR-010. Order.tierId is ON DELETE RESTRICT; the count only names the refusal.
       const orderCount = await tx.order.count({ where: { tierId } });
       if (orderCount > 0) {

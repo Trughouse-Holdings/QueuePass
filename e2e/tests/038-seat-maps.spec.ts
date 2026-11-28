@@ -91,7 +91,7 @@ test(
     const layout = (name: string) => layouts.getByRole('article', { name, exact: true });
     await expect(layouts.getByRole('article')).toHaveCount(4);
     await expect(layout('Basketball')).toContainText(
-      `${n(SEATS)} seats · 54 sections · 4 price levels · used by 2 events`,
+      `${n(SEATS)} seats · 54 sections · 4 price levels · used by 5 events`,
     );
     await expect(layout('End-stage concert')).toContainText('17,500 seats · ');
     await expect(layout('End-stage concert')).toContainText('used by 1 event');

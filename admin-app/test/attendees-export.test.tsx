@@ -139,9 +139,9 @@ describe('a Price level column and a Price per ticket in every format (038 FR-03
     const lines = (await (await download('CSV')).text()).replace(/^\uFEFF/, '').split('\r\n');
     expect(lines[0]).toMatch(/^Order placed,Customer,Name on tickets,Tier,Price level,Seat,/);
     expect(lines[1]).toContain(',,Courtside,"Section 115, Row D, Seat 2",BCDFGHJK2345,');
-    expect(lines[1]).toContain(',Confirmed,95.00,EEEEEEEE,');
+    expect(lines[1]).toContain(',Confirmed,,95.00,EEEEEEEE,');
     expect(lines[2]).toContain(',,Lower sideline,"Section 115, Row F, Seat 7",LMNPQRST6789,');
-    expect(lines[2]).toContain(',Confirmed,60.00,EEEEEEEE,');
+    expect(lines[2]).toContain(',Confirmed,,60.00,EEEEEEEE,');
   });
 
   it('Excel', async () => {

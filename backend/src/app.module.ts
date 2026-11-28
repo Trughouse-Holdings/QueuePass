@@ -14,6 +14,7 @@ import { SeatingModule } from './seating/seating.module';
 import { LayoutsModule } from './layouts/layouts.module';
 import { EntryModule } from './entry/entry.module';
 import { ReservationsModule } from './reservations/reservations.module';
+import { SeasonsModule } from './seasons/seasons.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ReservationsModule } from './reservations/reservations.module';
     LayoutsModule,
     ReservationsModule,
     EntryModule,
+    SeasonsModule,
   ],
 })
 export class AppModule {}

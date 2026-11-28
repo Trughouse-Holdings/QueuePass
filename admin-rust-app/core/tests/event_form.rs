@@ -2897,3 +2897,71 @@ fn a_venue_whose_layouts_have_no_seats_starts_on_general_admission() {
     f.layouts_loaded(layouts(&[empty]));
     assert_eq!(f.seating.layout_id, None);
 }
+
+// ---------------------------------------------------------------- spec 041: in a Season
+
+const IN_SEASON_ID: &str = "c0000000-0000-4000-8000-00000000000c";
+const IN_SEASON_LOCK: &str =
+    "In season: Louisville Hoops. Its venue, layout and seating can't change.";
+
+/// `event-season.test.tsx`' event: the general-admission event with sales, in a Season.
+fn in_season_edit() -> Form {
+    let mut f = Form::edit(EVENT_ID);
+    f.venues_loaded(vec![venue(seated_venue(30))]);
+    let event = fixtures::with(
+        ga_event(),
+        json!({ "season": { "id": IN_SEASON_ID, "name": "Louisville Hoops" } }),
+    );
+    f.event_loaded(&serde_json::from_value(event).unwrap(), vec![]);
+    f.tiers_loaded(
+        &two_tiers(),
+        Some(&ga_seating()),
+        Some(&availability(
+            27,
+            json!([{ "tierId": "t-floor", "ticketsLeft": 7 }, { "tierId": "t-bal", "ticketsLeft": 20 }]),
+        )),
+    );
+    f.layouts_loaded(venue_layouts());
+    f
+}
+
+#[test]
+fn says_in_season_and_locks_the_venue_and_seating_with_that_reason() {
+    // Spec 041 FR-007, FR-019 (T030, T032): named at once, locked until the Season's status says
+    // otherwise, and the Season's reason before the sales' one.
+    let f = in_season_edit();
+    let season = f.season.as_ref().expect("in a Season");
+    assert_eq!(
+        (season.id.as_str(), season.name.as_str()),
+        (IN_SEASON_ID, "Louisville Hoops")
+    );
+    assert_eq!(f.season_lock(), Some(IN_SEASON_LOCK));
+    assert_eq!(f.layout_lock_reason(), Some(IN_SEASON_LOCK));
+    assert_eq!(lock_reason::season("Louisville Hoops"), IN_SEASON_LOCK);
+    let mut on_sale = f.clone();
+    on_sale.season_status_loaded(IN_SEASON_ID, false);
+    assert_eq!(on_sale.season_lock(), Some(IN_SEASON_LOCK));
+}
+
+#[test]
+fn leaves_them_open_when_the_season_is_cancelled_still_naming_it() {
+    let mut f = in_season_edit();
+    // An answer for another Season is not this one's.
+    f.season_status_loaded("f0000000-0000-4000-8000-00000000000f", true);
+    assert_eq!(f.season_lock(), Some(IN_SEASON_LOCK));
+    f.season_status_loaded(IN_SEASON_ID, true);
+    assert_eq!(f.season_lock(), None);
+    assert_eq!(f.season.as_ref().unwrap().name, "Louisville Hoops");
+    // The sales' own lock is back.
+    assert_eq!(f.layout_lock_reason(), Some(lock_reason::SEATING));
+}
+
+#[test]
+fn an_event_in_no_season_says_nothing_of_one() {
+    let f = ga_edit_with_sales();
+    assert!(f.season.is_none());
+    assert_eq!(f.season_lock(), None);
+    let mut new = Form::new_event(now());
+    new.season_status_loaded(IN_SEASON_ID, false);
+    assert!(new.season.is_none());
+}

@@ -10,7 +10,8 @@ const YUM = 'KFC Yum! Center';
 
 /** R18 and T045: the Yum! Center's four layouts, in the order imported. */
 const LAYOUTS = [
-  { name: 'Basketball', seats: 22_090, sections: 54, levels: 4, eventsUsing: 2, locked: true },
+  // Spec 041 (R13): the three Season games join its two events.
+  { name: 'Basketball', seats: 22_090, sections: 54, levels: 4, eventsUsing: 5, locked: true },
   {
     name: 'End-stage concert',
     seats: 17_500,
@@ -78,6 +79,14 @@ const SEATED: {
   },
 ];
 
+/** Spec 041 FR-023 (research R13): the Season's games, days after the run at 19:00 local. */
+const GAMES = [
+  { name: 'Cardinals Men vs. Miami', days: 10 },
+  { name: 'Cardinals Men vs. Virginia', days: 17 },
+  { name: 'Cardinals Men vs. Syracuse', days: 24 },
+];
+const SEASON = 'Louisville Cardinals Basketball 2026–27';
+
 /** Spec 005 FR-013: the demo-data command obeys every rule and is safe to run twice. */
 describe('Demo data', () => {
   let ctx: TestContext;
@@ -98,8 +107,9 @@ describe('Demo data', () => {
       // Spec 038 (FR-033, research R18): the KFC Yum! Center joins the two.
       venues: 3,
       // Spec 017: Demo Tonight joins the three (research R13); spec 029: Season Opener (R5);
-      // spec 038: the Yum! Center's four (R18).
-      events: 9,
+      // spec 038: the Yum! Center's four (R18); spec 041: the Season's three games (R13).
+      events: 12,
+      season: 'Louisville Cardinals Basketball 2026–27',
       layouts: LAYOUTS.map(({ name, seats }) => ({ name, seats })),
       cancelled: 'Holiday Gala',
       past: 'Season Opener',
@@ -113,7 +123,7 @@ describe('Demo data', () => {
 
     const report = (await asAdmin(ctx).get('/reports/sales').expect(200)).body;
     // Scheduled events: the gala is cancelled (spec 029 research R5).
-    expect(report.totals.events).toBe(8);
+    expect(report.totals.events).toBe(11);
     expect(report.totals.ticketsSold).toBeGreaterThan(0);
     expect(report.totals.checkedIn).toBe(summary.checkedIn);
     const gala = report.events.find((e: { name: string }) => e.name === 'Holiday Gala');
@@ -166,7 +176,7 @@ describe('Demo data', () => {
   /** Spec 025 research R11 (T024): demo events take the default doors, start minus 1 hour. */
   it('gives every demo event doors 1 hour before its start, and Demo Tonight open for entry', async () => {
     const events = await ctx.prisma.event.findMany();
-    expect(events.length).toBe(9);
+    expect(events.length).toBe(12);
     for (const e of events) {
       expect(e.startsAt.getTime() - e.doorsOpenAt.getTime()).toBe(3_600_000);
     }
@@ -322,7 +332,9 @@ describe('Demo data', () => {
         where: { reservedSeating: true },
         select: { name: true },
       });
-      expect(seated.map((e) => e.name).sort()).toEqual(SEATED.map((e) => e.name).sort());
+      expect(seated.map((e) => e.name).sort()).toEqual(
+        [...SEATED.map((e) => e.name), ...GAMES.map((g) => g.name)].sort(),
+      );
     });
 
     describe.each(SEATED)('$name', ({ name, layout, prices, offSale }) => {
@@ -470,6 +482,69 @@ describe('Demo data', () => {
     });
   });
 
+  describe('the demo Season (041 FR-023)', () => {
+    it('is on sale at the Yum! Center on Basketball, with its three games and every level priced', async () => {
+      const season = await ctx.prisma.season.findFirstOrThrow({
+        where: { name: SEASON },
+        include: {
+          location: true,
+          layout: { include: { levels: true } },
+          events: { include: { event: true } },
+          prices: { include: { level: true } },
+        },
+      });
+      expect(season).toMatchObject({
+        status: 'ON_SALE',
+        sport: 'BASKETBALL',
+        team: 'Louisville Cardinals',
+        maxPassesPerCustomer: null,
+      });
+      expect(season.location.name).toBe(YUM);
+      expect(season.layout?.name).toBe('Basketball');
+      const zone = season.location.timeZone;
+      const today = Date.parse(localDate(new Date(), zone));
+      const games = season.events
+        .map((se) => se.event)
+        .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+      expect(
+        games.map((g) => ({
+          name: g.name,
+          days: (Date.parse(localDate(g.startsAt, zone)) - today) / 86_400_000,
+          time: toLocalDateTime(g.startsAt, zone).slice(11, 16),
+          layoutId: g.layoutId,
+          status: g.status,
+        })),
+      ).toEqual(
+        GAMES.map((g) => ({
+          ...g,
+          time: '19:00',
+          layoutId: season.layoutId,
+          status: 'SCHEDULED',
+        })),
+      );
+      // Every level priced; sales end at the first game's start.
+      expect(season.prices.map((p) => p.level?.name).sort()).toEqual(
+        season.layout!.levels.map((l) => l.name).sort(),
+      );
+      expect(season.salesEndAt.getTime()).toBe(games[0].startsAt.getTime());
+      // Single tickets go on sale 3 days after the run, at 10:00 local.
+      const open = season.singleSalesOpenAt!;
+      expect((Date.parse(localDate(open, zone)) - today) / 86_400_000).toBe(3);
+      expect(toLocalDateTime(open, zone).slice(11, 16)).toBe('10:00');
+    });
+
+    it('shows the presale on its games and no passes sold', async () => {
+      const season = await ctx.prisma.season.findFirstOrThrow({ where: { name: SEASON } });
+      const listed = (await asAdmin(ctx).get('/seasons').expect(200)).body;
+      const mine = listed.find((s: { id: string }) => s.id === season.id);
+      expect(mine).toMatchObject({ passesSold: 0, passRevenue: '0.00', salesOpen: true });
+      const game = await ctx.prisma.event.findFirstOrThrow({ where: { name: GAMES[0].name } });
+      const read = (await asAdmin(ctx).get(`/events/${game.id}`).expect(200)).body;
+      expect(read.season).toEqual({ id: season.id, name: SEASON });
+      expect(new Date(read.singleSalesOpenAt).getTime()).toBe(season.singleSalesOpenAt!.getTime());
+    });
+  });
+
   it('changes nothing when run again', async () => {
     const before = await ctx.prisma.order.count();
     const images = await ctx.prisma.eventImage.count();
@@ -562,7 +637,7 @@ describe('Demo data', () => {
         expect(summary).toMatchObject({
           created: true,
           venues: 3,
-          events: 9,
+          events: 12,
           cancelled: 'Holiday Gala',
           past: 'Season Opener',
           unverifiedVenues: 3,

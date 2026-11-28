@@ -60,6 +60,9 @@ describe('Sales report', () => {
       ticketsSold: 0,
       checkedIn: 0,
       revenue: '0.00',
+      // Spec 041 (R8): no passes sold.
+      passTicketsSold: 0,
+      passRevenue: '0.00',
     });
     expect(res.body.events).toEqual([]);
   });
@@ -107,6 +110,8 @@ describe('Sales report', () => {
       ticketsSold: 9,
       checkedIn: 2,
       revenue: '456.00',
+      passTicketsSold: 0,
+      passRevenue: '0.00',
     });
     expect(res.body.events.map((e: { name: string }) => e.name)).toEqual([
       'Opener',

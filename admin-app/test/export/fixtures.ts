@@ -56,6 +56,8 @@ export const EXPORT_ORDERS: Order[] = [
     customerUsername: 'customer2',
     holderName: '=SUM(1,1)',
     createdAt: '2026-10-02T01:30:00.000Z',
+    // Spec 041 (R8): bought on a Season pass.
+    seasonPass: { id: 'p1', seasonId: 's1', seasonName: 'Louisville Hoops' },
     tickets: [ticket('t3', 'STUVWXYZ2345')],
   }),
   order({
@@ -126,7 +128,17 @@ export const EXPORT_ORDERS: Order[] = [
 export const EXPORT_REPORT: SalesReport = {
   ...(REPORT as unknown as SalesReport),
   generatedAt: '2026-10-30T18:05:00.000Z',
-  events: (REPORT as unknown as SalesReport).events.map((e, i) =>
-    i === 1 ? { ...e, timeZone: 'America/Los_Angeles' } : { ...e, timeZone: 'America/New_York' },
-  ),
+  // Spec 041 (R8): one pass's share at the first event, part of its sold and revenue figures.
+  totals: {
+    ...(REPORT as unknown as SalesReport).totals,
+    passTicketsSold: 3,
+    passRevenue: '100.00',
+  },
+  events: (REPORT as unknown as SalesReport).events.map((e, i) => ({
+    ...(i === 1
+      ? { ...e, timeZone: 'America/Los_Angeles' }
+      : { ...e, timeZone: 'America/New_York' }),
+    passTicketsSold: i === 0 ? 3 : 0,
+    passRevenue: i === 0 ? '100.00' : '0.00',
+  })),
 };

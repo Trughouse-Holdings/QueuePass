@@ -5,7 +5,9 @@
     "ticketCapacity": 300,
     "ticketsSold": 75,
     "checkedIn": 12,
-    "revenue": "4321.50"
+    "revenue": "4321.50",
+    "passTicketsSold": 0,
+    "passRevenue": "0.00"
   },
   "events": [
     {
@@ -38,7 +40,9 @@
       ],
       "levels": [],
       "timeZone": "America/New_York",
-      "checkInDetailsRemovedAt": null
+      "checkInDetailsRemovedAt": null,
+      "passTicketsSold": 0,
+      "passRevenue": "0.00"
     },
     {
       "eventId": "33333333-3333-4333-8333-333333333333",
@@ -53,7 +57,9 @@
       "tiers": [],
       "levels": [],
       "timeZone": "America/New_York",
-      "checkInDetailsRemovedAt": null
+      "checkInDetailsRemovedAt": null,
+      "passTicketsSold": 0,
+      "passRevenue": "0.00"
     },
     {
       "eventId": "44444444-4444-4444-8444-444444444444",
@@ -68,7 +74,9 @@
       "tiers": [],
       "levels": [],
       "timeZone": "America/New_York",
-      "checkInDetailsRemovedAt": null
+      "checkInDetailsRemovedAt": null,
+      "passTicketsSold": 0,
+      "passRevenue": "0.00"
     }
   ]
 }

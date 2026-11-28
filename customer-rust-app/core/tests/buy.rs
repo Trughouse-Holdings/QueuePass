@@ -28,6 +28,7 @@ fn order() -> Order {
         "status": "CONFIRMED",
         "createdAt": "2026-10-03T15:00:00.000Z",
         "refundedAt": null,
+        "seasonPass": null,
         "tickets": [
             { "id": "00000000-0000-4000-8000-000000000001", "code": "AAAA2222BBBB", "status": "VALID",
               "checkedInAt": null, "seat": null, "price": "45.50", "levelName": null },

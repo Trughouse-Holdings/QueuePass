@@ -319,7 +319,9 @@ export async function runDemoReset(
 
   log(
     `Created: ${created.venues} venues, ${created.layouts.length} layouts, ${created.events} ` +
-      `events (${created.cancelled} cancelled, ${created.past} over), ${created.orders} orders, ` +
+      `events (${created.cancelled} cancelled, ${created.past} over), ` +
+      // Spec 041 (R13): the Season the demo puts on sale.
+      `1 season (${created.season}, on sale), ${created.orders} orders, ` +
       `${created.tickets} tickets (${created.checkedIn} checked in), ${created.images} images. ` +
       `Demo Tonight is open for check-in until ` +
       `${formatTimeOfDay(tonight.endsAt, tonight.location.timeZone)}.`,

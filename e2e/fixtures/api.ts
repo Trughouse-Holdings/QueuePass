@@ -28,6 +28,7 @@ export type OffSaleSelector = Schemas['OffSaleSelector'];
 export type Reservation = Schemas['Reservation'];
 export type TicketTier = Schemas['TicketTier'];
 export type Order = Schemas['Order'];
+export type Season = Schemas['Season'];
 /** A venue's address as the Admin form takes it (spec 013): all four fields. */
 export type Place = Required<Pick<Schemas['LocationInput'], 'street' | 'city' | 'state' | 'zip'>>;
 
@@ -353,3 +354,36 @@ export const WOMENS_GAME_PRICES = {
   'Lower sideline': '60.00',
   'Lower end': '35.00',
 };
+
+/**
+ * Spec 041: a seated Season on sale at the venue, on `layout`, of `events`, priced by level name
+ * (`prices`), its pass sales ending at `salesEndAt`; created and put on sale through the API.
+ */
+export async function seasonOnSale(
+  api: Api,
+  venue: Location,
+  setup: {
+    name: string;
+    layout: LayoutDetail;
+    events: Event[];
+    prices: Record<string, string>;
+    salesEndAt: Date;
+  },
+): Promise<Season> {
+  const draft = await api.call<Season>('POST', '/seasons', {
+    name: setup.name,
+    sport: 'BASKETBALL',
+    team: 'E2E Team',
+    locationId: venue.id,
+    layoutId: setup.layout.id,
+    salesEndAt: zoned(setup.salesEndAt, venue.timeZone),
+    singleSalesOpenAt: null,
+    maxPassesPerCustomer: null,
+    eventIds: setup.events.map((e) => e.id),
+    prices: Object.entries(setup.prices).map(([level, price]) => ({
+      levelId: levelOf(setup.layout, level).id,
+      price,
+    })),
+  } satisfies Schemas['SeasonInput']);
+  return api.call<Season>('POST', `/seasons/${draft.id}/publish`);
+}

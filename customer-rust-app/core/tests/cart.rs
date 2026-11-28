@@ -58,7 +58,7 @@ fn order(event_id: &str) -> Order {
         "eventId": "00000000-0000-4000-8000-0000000000e1",
         "tierId": null, "tierName": null, "customerUsername": "customer1",
         "holderName": "Jordan Lee", "quantity": 1, "unitPrice": null, "totalPrice": "95.00",
-        "status": "CONFIRMED", "createdAt": "2026-10-20T19:01:00.000Z", "refundedAt": null,
+        "status": "CONFIRMED", "createdAt": "2026-10-20T19:01:00.000Z", "refundedAt": null, "seasonPass": null,
         "tickets": [],
     }))
     .map(|mut o: Order| {
@@ -619,7 +619,7 @@ fn a_placed_order_reads_its_seats_from_my_orders() {
         "eventId": "00000000-0000-4000-8000-0000000000e1",
         "tierId": null, "tierName": null, "customerUsername": "customer1",
         "holderName": "Jordan Lee", "quantity": 2, "unitPrice": null, "totalPrice": "95.00",
-        "status": "CONFIRMED", "createdAt": "2026-10-20T19:01:00.000Z", "refundedAt": null,
+        "status": "CONFIRMED", "createdAt": "2026-10-20T19:01:00.000Z", "refundedAt": null, "seasonPass": null,
         "tickets": [
             { "id": "00000000-0000-4000-8000-000000000001", "code": "AAAA2222BBBB",
               "status": "VALID", "checkedInAt": null, "price": "95.00", "levelName": "Courtside",

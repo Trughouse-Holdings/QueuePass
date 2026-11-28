@@ -353,6 +353,19 @@ export class LayoutsService {
           { events: using },
         );
       }
+      // Spec 041 FR-007: a layout any Season uses stays (RESTRICT holds below this).
+      const season = await tx.season.findFirst({
+        where: { layoutId },
+        select: { id: true, name: true },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      });
+      if (season) {
+        throw conflict(
+          'LAYOUT_IN_USE',
+          `${layout.name} is used by ${season.name}, so it can't be deleted. Duplicate it instead.`,
+          { events: [], seasonId: season.id, seasonName: season.name },
+        );
+      }
       await tx.layout.delete({ where: { id: layoutId } });
       await this.setCapacity(tx, layout.locationId, venue);
     }, LOCKING_TX);
@@ -560,6 +573,21 @@ export class LayoutsService {
           `${blocking.length === 1 ? 'has' : 'have'} sold or held seats. Duplicate it to make ` +
           'changes.',
         { events: blocking },
+      );
+    }
+    // Spec 041 FR-007 (research R9, review S5): an on-sale Season sells passes on it, so a level
+    // can't be added (unpriced) or removed (taking its pass price) under it. A draft's stays open.
+    const season = await tx.season.findFirst({
+      where: { layoutId, status: 'ON_SALE' },
+      select: { id: true, name: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    if (season) {
+      throw conflict(
+        'LAYOUT_IN_USE',
+        `${name} is used by ${season.name}, which is on sale, so it can't be changed. Duplicate ` +
+          'it to make changes.',
+        { events: [], seasonId: season.id, seasonName: season.name },
       );
     }
   }

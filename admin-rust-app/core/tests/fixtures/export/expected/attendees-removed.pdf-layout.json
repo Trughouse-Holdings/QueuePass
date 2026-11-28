@@ -18,6 +18,7 @@
     "Ticket status",
     "Checked in",
     "Order status",
+    "Pass",
     "Price",
     "Order"
   ],
@@ -33,6 +34,7 @@
       "Valid",
       "",
       "Confirmed",
+      "",
       "$84.30",
       "AAAAAAAA"
     ],
@@ -47,6 +49,7 @@
       "Valid",
       "",
       "Confirmed",
+      "",
       "$84.30",
       "AAAAAAAA"
     ],
@@ -61,6 +64,7 @@
       "Valid",
       "",
       "Confirmed",
+      "",
       "$45.00",
       "BBBBBBBB"
     ],
@@ -75,6 +79,7 @@
       "Valid",
       "",
       "Confirmed",
+      "",
       "$60.00",
       "CCCCCCCC"
     ],
@@ -89,6 +94,7 @@
       "Void",
       "",
       "Refunded",
+      "",
       "$45.00",
       "DDDDDDDD"
     ],
@@ -103,6 +109,7 @@
       "Valid",
       "",
       "Confirmed",
+      "",
       "$95.00",
       "EEEEEEEE"
     ],
@@ -117,9 +124,10 @@
       "Valid",
       "",
       "Confirmed",
+      "",
       "$60.00",
       "EEEEEEEE"
     ]
   ],
-  "nowrap": [true, false, false, false, false, false, true, false, true, false, true, true]
+  "nowrap": [true, false, false, false, false, false, true, false, true, false, false, true, true]
 }

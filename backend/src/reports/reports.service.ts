@@ -39,6 +39,9 @@ interface EventSalesResponse {
   tiers: TierSalesResponse[];
   /** Spec 038 research R17: a seated event's sales by price level; empty for general admission. */
   levels: LevelSalesResponse[];
+  /** Spec 041 FR-020 (research R8): of `ticketsSold` and `revenue`, what came from passes. */
+  passTicketsSold: number;
+  passRevenue: string;
 }
 
 /** API shape: contracts/openapi.yaml `SalesReport`. */
@@ -50,6 +53,8 @@ export interface SalesReportResponse {
     ticketsSold: number;
     checkedIn: number;
     revenue: string;
+    passTicketsSold: number;
+    passRevenue: string;
   };
   events: EventSalesResponse[];
 }
@@ -68,7 +73,7 @@ export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async sales(): Promise<SalesReportResponse> {
-    const [events, sold, checked, revenue, levels] = await Promise.all([
+    const [events, sold, checked, revenue, levels, passSold, passRevenue] = await Promise.all([
       this.prisma.event.findMany({
         include: { location: true, tiers: { orderBy: [{ price: 'asc' }, { name: 'asc' }] } },
         orderBy: { startsAt: 'asc' },
@@ -89,7 +94,22 @@ export class ReportsService {
         _sum: { totalPrice: true },
       }),
       this.levelSales(),
+      // Spec 041 (R8): valid tickets and confirmed order totals of orders bought on a pass.
+      this.prisma.ticket.groupBy({
+        by: ['eventId'],
+        where: { status: 'VALID', order: { seasonPassId: { not: null } } },
+        _count: { _all: true },
+      }),
+      this.prisma.order.groupBy({
+        by: ['eventId'],
+        where: { status: 'CONFIRMED', seasonPassId: { not: null } },
+        _sum: { totalPrice: true },
+      }),
     ]);
+    const passSoldBy = new Map(passSold.map((r) => [r.eventId, r._count._all]));
+    const passRevenueBy = new Map(passRevenue.map((r) => [r.eventId, r._sum.totalPrice ?? ZERO]));
+    let totalPassRevenue = ZERO;
+    let totalPassSold = 0;
 
     const soldBy = new Map(sold.map((r) => [key(r.eventId, r.tierId), r._count._all]));
     const checkedBy = new Map(checked.map((r) => [r.eventId, r._count._all]));
@@ -124,6 +144,10 @@ export class ReportsService {
       totals.ticketsSold += eventSold;
       totals.checkedIn += eventChecked;
       totalRevenue = totalRevenue.add(eventRevenue);
+      const eventPassSold = passSoldBy.get(e.id) ?? 0;
+      const eventPassRevenue = passRevenueBy.get(e.id) ?? ZERO;
+      totalPassSold += eventPassSold;
+      totalPassRevenue = totalPassRevenue.add(eventPassRevenue);
 
       return {
         eventId: e.id,
@@ -147,12 +171,19 @@ export class ReportsService {
           revenue: (revenueBy.get(key(e.id, t.id)) ?? ZERO).toFixed(2),
         })),
         levels: levels.get(e.id) ?? [],
+        passTicketsSold: eventPassSold,
+        passRevenue: eventPassRevenue.toFixed(2),
       };
     });
 
     return {
       generatedAt: new Date(),
-      totals: { ...totals, revenue: totalRevenue.toFixed(2) },
+      totals: {
+        ...totals,
+        revenue: totalRevenue.toFixed(2),
+        passTicketsSold: totalPassSold,
+        passRevenue: totalPassRevenue.toFixed(2),
+      },
       events: rows,
     };
   }

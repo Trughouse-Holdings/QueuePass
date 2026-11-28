@@ -16,7 +16,7 @@ use admin_rust_core::{
         attendees_reports::count,
         event_page::{
             DeleteKind, already_gone_notice, cancel_confirm, cancel_done, delete_confirm,
-            deleted_notice, per_customer,
+            deleted_notice, per_customer, season_link, single_sales_line,
         },
     },
     time::to_iso_string,
@@ -262,7 +262,17 @@ fn EventView(event: RwSignal<Option<(Event, i64)>>) -> impl IntoView {
                 let (e, _) = e.as_ref()?;
                 let zone = Some(zone.as_str());
                 let starts = to_iso_string(e.starts_at);
+                // Spec 041 FR-019, FR-013: its Season, and while the presale runs, when single
+                // tickets go on sale, in the venue's zone.
+                let season = e
+                    .season
+                    .as_ref()
+                    .map(|s| (season_link(&s.id.to_string()), s.name.to_string()));
+                let presale = e
+                    .single_sales_open_at
+                    .map(|at| single_sales_line(&to_iso_string(at), zone));
                 Some((
+                    (season, presale),
                     format!("/locations/{}", e.location_id),
                     e.location.name.to_string(),
                     doors_open(&starts, &to_iso_string(e.doors_open_at), zone),
@@ -274,13 +284,33 @@ fn EventView(event: RwSignal<Option<(Event, i64)>>) -> impl IntoView {
                 ))
             });
             shown.map(
-                |(venue_href, venue, doors, starts, ends, tickets, per, price)| {
+                |(
+                    (season, presale),
+                    venue_href,
+                    venue,
+                    doors,
+                    starts,
+                    ends,
+                    tickets,
+                    per,
+                    price,
+                )| {
                     view! {
                         <dl>
                             <dt>"Venue"</dt>
                             <dd>
                                 <AppLink href=venue_href class="rowlink">{venue}</AppLink>
                             </dd>
+                            {season.map(|(href, name)| view! {
+                                <dt>"Season"</dt>
+                                <dd>
+                                    <AppLink href=href class="rowlink">{name}</AppLink>
+                                </dd>
+                            })}
+                            {presale.map(|line| view! {
+                                <dt>"Single tickets"</dt>
+                                <dd class="cell-time">{line}</dd>
+                            })}
                             <dt>"Doors open"</dt>
                             <dd class="cell-time">{doors}</dd>
                             <dt>"Starts"</dt>

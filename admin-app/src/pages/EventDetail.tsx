@@ -152,6 +152,26 @@ function EventView({
               {event.location.name}
             </Link>
           </dd>
+          {/* Spec 041 FR-019, FR-013: its Season, and while the presale runs, when single
+              tickets go on sale, in the venue's zone. */}
+          {event.season && (
+            <>
+              <dt>Season</dt>
+              <dd>
+                <Link to={`/seasons/${event.season.id}`} className="rowlink">
+                  {event.season.name}
+                </Link>
+              </dd>
+            </>
+          )}
+          {event.singleSalesOpenAt && (
+            <>
+              <dt>Single tickets</dt>
+              <dd className="cell-time">
+                {`Single tickets on sale from ${when(event.singleSalesOpenAt, event.location.timeZone)}`}
+              </dd>
+            </>
+          )}
           {event.doorsOpenAt && (
             <>
               <dt>Doors open</dt>

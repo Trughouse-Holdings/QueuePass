@@ -9,6 +9,8 @@ import { EventForm } from './pages/EventForm';
 import { EventDetail } from './pages/EventDetail';
 import { Attendees } from './pages/Attendees';
 import { Reports } from './pages/Reports';
+import { Seasons } from './pages/Seasons';
+import { SeasonForm } from './pages/SeasonForm';
 import { LayoutEditorPage } from './layout-editor/LayoutEditor';
 
 const navClass = ({ isActive }: { isActive: boolean }): string =>
@@ -39,6 +41,10 @@ function AppShell(): React.ReactElement {
             </NavLink>
             <NavLink to="/events" className={navClass}>
               Events
+            </NavLink>
+            {/* Spec 041 (R11): between Events and Reports. */}
+            <NavLink to="/seasons" className={navClass}>
+              Seasons
             </NavLink>
             <NavLink to="/reports" className={navClass}>
               Reports
@@ -87,6 +93,10 @@ export const routes: RouteObject[] = [
       { path: '/events/:id', element: <EventDetail /> },
       { path: '/events/:id/edit', element: <EventForm /> },
       { path: '/events/:id/attendees', element: <AttendeesPage /> },
+      // Spec 041 (R11): the Seasons list, a new Season, and one Season's page.
+      { path: '/seasons', element: <Seasons /> },
+      { path: '/seasons/new', element: <SeasonForm /> },
+      { path: '/seasons/:id', element: <SeasonForm /> },
       { path: '/reports', element: <ReportsPage /> },
     ],
   },

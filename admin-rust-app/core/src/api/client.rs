@@ -386,6 +386,29 @@ pub mod ops {
     pub fn get_sales_report() -> Call {
         Call::new(Method::Get, "/reports/sales".into())
     }
+
+    // Seasons (seasons.ts; spec 041, research R12).
+    pub fn list_seasons() -> Call {
+        Call::new(Method::Get, "/seasons".into())
+    }
+    pub fn get_season(id: &str) -> Call {
+        Call::new(Method::Get, format!("/seasons/{id}"))
+    }
+    pub fn create_season(input: &Value) -> Call {
+        Call::new(Method::Post, "/seasons".into()).json(input)
+    }
+    pub fn update_season(id: &str, input: &Value) -> Call {
+        Call::new(Method::Put, format!("/seasons/{id}")).json(input)
+    }
+    pub fn delete_season(id: &str) -> Call {
+        Call::new(Method::Delete, format!("/seasons/{id}"))
+    }
+    pub fn publish_season(id: &str) -> Call {
+        Call::new(Method::Post, format!("/seasons/{id}/publish"))
+    }
+    pub fn cancel_season(id: &str) -> Call {
+        Call::new(Method::Post, format!("/seasons/{id}/cancel"))
+    }
 }
 
 /// Where the signed-in admin's current access token comes from.
@@ -687,6 +710,33 @@ impl ApiClient {
 
     pub async fn get_sales_report(&self) -> Result<types::SalesReport, ApiError> {
         self.send(ops::get_sales_report()).await
+    }
+
+    /// Spec 041: admins get every Season, drafts and cancelled ones included (research R3).
+    pub async fn list_seasons(&self) -> Result<Vec<types::Season>, ApiError> {
+        self.send(ops::list_seasons()).await
+    }
+    pub async fn get_season(&self, id: &str) -> Result<types::Season, ApiError> {
+        self.send(ops::get_season(id)).await
+    }
+    /// Saved as a draft, with its events and prices, in one step.
+    pub async fn create_season(&self, input: &Value) -> Result<types::Season, ApiError> {
+        self.send(ops::create_season(input)).await
+    }
+    /// The whole Season, all or nothing.
+    pub async fn update_season(&self, id: &str, input: &Value) -> Result<types::Season, ApiError> {
+        self.send(ops::update_season(id, input)).await
+    }
+    /// Drafts only; its events can then join another Season (FR-008).
+    pub async fn delete_season(&self, id: &str) -> Result<(), ApiError> {
+        self.send_empty(ops::delete_season(id)).await
+    }
+    pub async fn publish_season(&self, id: &str) -> Result<types::Season, ApiError> {
+        self.send(ops::publish_season(id)).await
+    }
+    /// FR-014: irreversible. Callers MUST confirm first, saying how many passes will be refunded.
+    pub async fn cancel_season(&self, id: &str) -> Result<types::SeasonCancellation, ApiError> {
+        self.send(ops::cancel_season(id)).await
     }
 }
 

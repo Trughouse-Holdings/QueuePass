@@ -18,6 +18,7 @@ import { LocationsService } from '../locations/locations.service';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReservationsService } from '../reservations/reservations.service';
+import { SeasonsService } from '../seasons/seasons.service';
 import { TiersService } from '../tiers/tiers.service';
 import { demoPng, type Rgb } from './demo-images';
 // Spec 038 research R18: the generator's files (T045), as JSON modules, so the build copies them.
@@ -64,6 +65,8 @@ export interface DemoSummary {
   images: number;
   /** Spec 038 (T047): the Yum! Center's layouts, in the order imported. */
   layouts: { name: string; seats: number }[];
+  /** Spec 041 FR-023 (research R13): the Season put on sale, or `null` when nothing was made. */
+  season: string | null;
 }
 
 /** Spec 014 research R15: color pairs for the generated pictures, one picture each. */
@@ -283,6 +286,7 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
       unverifiedVenues: 0,
       images: 0,
       layouts: [],
+      season: null,
     };
   }
 
@@ -327,6 +331,12 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
     events,
     reservations,
     orders,
+  });
+  // Spec 041 (R13): after the seated demo, so its Basketball layout is imported.
+  const season = await createSeasonDemo(yum.id, yum.timeZone as UsTimeZone, {
+    events,
+    seasons: app.get(SeasonsService),
+    layout: seated.basketball,
   });
   const arena = await locations.create(
     {
@@ -453,7 +463,7 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   return {
     created: true,
     venues: 3,
-    events: 5 + seated.eventIds.length,
+    events: 5 + seated.eventIds.length + season.eventIds.length,
     orders: orderCount + seated.orders,
     tickets: await prisma.ticket.count({
       where: {
@@ -466,6 +476,7 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
     unverifiedVenues: [hall, yum, arena].filter((v) => !v.addressVerified).length,
     images: imageCount,
     layouts: seated.layouts,
+    season: season.name,
   };
 }
 
@@ -484,7 +495,12 @@ async function createSeatedDemo(
     reservations: ReservationsService;
     orders: OrdersService;
   },
-): Promise<{ layouts: { name: string; seats: number }[]; eventIds: string[]; orders: number }> {
+): Promise<{
+  layouts: { name: string; seats: number }[];
+  eventIds: string[];
+  orders: number;
+  basketball: LayoutDetail;
+}> {
   const imported = new Map<string, LayoutDetail>();
   for (const file of YUM_LAYOUTS) {
     const layout = await services.layouts.importFile(locationId, { file });
@@ -575,7 +591,80 @@ async function createSeatedDemo(
     layouts: [...imported.values()].map((l) => ({ name: l.name, seats: l.seatCount })),
     eventIds,
     orders: orderCount,
+    basketball: imported.get('Basketball')!,
   };
+}
+
+/** Spec 041 FR-023 (research R13): the Season's games, priced as the Basketball demo event. */
+const SEASON_GAMES = [
+  { name: 'Cardinals Men vs. Miami', days: 10 },
+  { name: 'Cardinals Men vs. Virginia', days: 17 },
+  { name: 'Cardinals Men vs. Syracuse', days: 24 },
+];
+const GAME_PRICES: Record<string, string> = {
+  Courtside: '150.00',
+  'Lower sideline': '90.00',
+  'Lower end': '55.00',
+  Upper: '25.00',
+};
+/** A whole-Season price per level, a little under three games. */
+const PASS_PRICES: Record<string, string> = {
+  Courtside: '420.00',
+  'Lower sideline': '250.00',
+  'Lower end': '150.00',
+  Upper: '65.00',
+};
+export const DEMO_SEASON = 'Louisville Cardinals Basketball 2026–27';
+
+/**
+ * Spec 041 FR-023 (research R13): three men's basketball games on the Yum! Center's Basketball
+ * layout through `EventsService`, and the Season of them through `SeasonsService`: every level
+ * priced, pass sales ending at the first game's start, single tickets on sale 3 days after the run
+ * at 10:00 local, put on sale. The layout is already imported, so no seats load again.
+ */
+async function createSeasonDemo(
+  locationId: string,
+  zone: UsTimeZone,
+  services: { events: EventsService; seasons: SeasonsService; layout: LayoutDetail },
+): Promise<{ name: string; eventIds: string[] }> {
+  const layoutId = services.layout.id;
+  const levelId = (name: string): string => {
+    const level = services.layout.levels.find((l) => l.name === name);
+    if (!level) throw new Error(`The Basketball layout has no level "${name}".`);
+    return level.id;
+  };
+  const eventIds: string[] = [];
+  let firstStart: Date | null = null;
+  for (const game of SEASON_GAMES) {
+    const start = atLocal(game.days, '19:00', zone);
+    firstStart ??= start;
+    const event = await services.events.create({
+      name: game.name,
+      locationId,
+      ...timesAt(start, 3, zone),
+      basePrice: GAME_PRICES.Upper,
+      layoutId,
+      levelPrices: Object.entries(GAME_PRICES).map(([name, price]) => ({
+        levelId: levelId(name),
+        price,
+      })),
+    });
+    eventIds.push(event.id);
+  }
+  const season = await services.seasons.create({
+    name: DEMO_SEASON,
+    sport: 'BASKETBALL',
+    team: 'Louisville Cardinals',
+    locationId,
+    layoutId,
+    salesEndAt: toOffsetDateTime(firstStart!, zone),
+    singleSalesOpenAt: toOffsetDateTime(atLocal(3, '10:00', zone), zone),
+    maxPassesPerCustomer: null,
+    eventIds,
+    prices: Object.entries(PASS_PRICES).map(([name, price]) => ({ levelId: levelId(name), price })),
+  });
+  await services.seasons.publish(season.id);
+  return { name: season.name, eventIds };
 }
 
 function sectionIdOf(layout: LayoutDetail, name: string): string {
@@ -597,7 +686,7 @@ async function main(): Promise<void> {
     console.log(
       s.created
         ? `Demo data created: ${s.venues} venues, ${s.layouts.length} layouts, ${s.events} ` +
-            `events, ${s.orders} orders, ${s.tickets} tickets (${s.checkedIn} checked in), ` +
+            `events, 1 season (${s.season}, on sale), ${s.orders} orders, ${s.tickets} tickets (${s.checkedIn} checked in), ` +
             `${s.images} images; "${s.cancelled}" cancelled; "${s.past}" over.\n` +
             layoutsLine(s.layouts)
         : `Demo data already present ("${DEMO_VENUE}" exists); nothing changed.`,

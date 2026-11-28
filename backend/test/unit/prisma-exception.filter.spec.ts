@@ -134,3 +134,53 @@ describe('AllExceptionsFilter, spec 014', () => {
     ).toBe(500);
   });
 });
+
+/**
+ * Spec 041 research R1 (review S1, T011a): the Season foreign keys that slip past the services'
+ * own named refusals. Deleting an event in a Season is `409 EVENT_IN_SEASON` and deleting a layout
+ * a Season uses `409 LAYOUT_IN_USE`, for a model write (`P2003`) and a raw statement (`23503`),
+ * never the venue fallback.
+ */
+describe('AllExceptionsFilter, spec 041 Season foreign keys', () => {
+  const code = (out: { body: unknown }) => (out.body as { error: { code: string } }).error.code;
+
+  it('maps a P2003 on SeasonEvent_eventId_fkey to EVENT_IN_SEASON', () => {
+    const out = run(known('P2003', { field_name: 'SeasonEvent_eventId_fkey (index)' }));
+    expect(out.status).toBe(409);
+    expect(code(out)).toBe('EVENT_IN_SEASON');
+  });
+
+  it('maps a P2003 on Season_layoutId_fkey to LAYOUT_IN_USE', () => {
+    const out = run(known('P2003', { field_name: 'Season_layoutId_fkey (index)' }));
+    expect(out.status).toBe(409);
+    expect(code(out)).toBe('LAYOUT_IN_USE');
+  });
+
+  it('maps a raw-query 23503 naming either constraint the same way', () => {
+    const event =
+      'update or delete on table "Event" violates foreign key constraint "SeasonEvent_eventId_fkey" on table "SeasonEvent"';
+    const layout =
+      'update or delete on table "Layout" violates foreign key constraint "Season_layoutId_fkey" on table "Season"';
+    expect(code(run(known('P2010', { code: '23503', message: event }, event)))).toBe(
+      'EVENT_IN_SEASON',
+    );
+    expect(code(run(known('P2010', { code: '23503', message: layout }, layout)))).toBe(
+      'LAYOUT_IN_USE',
+    );
+    const unknown = new Prisma.PrismaClientUnknownRequestError(`Code: 23503. ${layout}`, {
+      clientVersion: '6',
+    });
+    expect(code(run(unknown))).toBe('LAYOUT_IN_USE');
+  });
+
+  it('keeps the venue fallback for any other P2003', () => {
+    expect(code(run(known('P2003', { field_name: 'Event_locationId_fkey (index)' })))).toBe(
+      'VENUE_HAS_EVENTS',
+    );
+  });
+
+  it('does not map a raw query whose SQLSTATE is not 23503, though it quotes the constraint', () => {
+    const message = 'check "SeasonEvent_eventId_fkey" failed';
+    expect(run(known('P2010', { code: '23514', message }, message)).status).toBe(500);
+  });
+});

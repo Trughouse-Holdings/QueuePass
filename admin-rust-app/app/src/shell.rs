@@ -38,6 +38,10 @@ pub fn AppShell() -> impl IntoView {
                         <NavLink href="/events" class="navlink" active_class="navlink--active">
                             "Events"
                         </NavLink>
+                        // Spec 041 (R11, R12): between Events and Reports.
+                        <NavLink href="/seasons" class="navlink" active_class="navlink--active">
+                            "Seasons"
+                        </NavLink>
                         <NavLink href="/reports" class="navlink" active_class="navlink--active">
                             "Reports"
                         </NavLink>
