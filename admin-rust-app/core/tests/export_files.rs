@@ -629,13 +629,6 @@ fn squash(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// Text without its whitespace: a word wider than its column is broken inside (as jsPDF breaks
-/// it), so a cell is found by its characters in order (spec 041's narrower attendee columns:
-/// "Ticket status", "Confirmed").
-fn bare(s: &str) -> String {
-    s.split_whitespace().collect()
-}
-
 #[test]
 fn pdf_is_letter_landscape_with_noto_sans_embedded_one_page_for_10_rows() {
     assert_eq!(PDF_TYPE, "application/pdf");
@@ -713,7 +706,7 @@ fn every_pdf_has_the_title_the_notes_the_header_and_every_row() {
         for n in 1..=pages as u32 {
             let text = squash(&p.page_text(n));
             assert!(
-                bare(&text).contains(&bare(&layout.head.join(" "))),
+                text.contains(&squash(&layout.head.join(" "))),
                 "{name} page {n}"
             );
             assert!(
@@ -721,14 +714,14 @@ fn every_pdf_has_the_title_the_notes_the_header_and_every_row() {
                 "{name} page {n}"
             );
         }
-        let all = bare(&all);
+        let all = squash(&all);
         for row in &layout.body {
             let cells: Vec<&str> = row
                 .iter()
                 .map(String::as_str)
                 .filter(|c| !c.is_empty())
                 .collect();
-            let row = bare(&cells.join(" "));
+            let row = squash(&cells.join(" "));
             assert!(all.contains(&row), "{name}: {row}");
         }
     }
@@ -820,6 +813,27 @@ fn epoch() -> DateTime<Utc> {
     DateTime::UNIX_EPOCH
 }
 
+/// Every heading of `t`'s PDF, and with `cells` every body cell too, reads whole: wrapped at
+/// spaces only, no word cut inside (spec 041: the narrower attendee columns still hold their
+/// headings, and the sample's "Confirmed", "Refunded" and Season names).
+fn assert_no_word_cut(t: &ExportTable, cells: bool) {
+    let layout = pdf_layout(t);
+    let p = pdf(t);
+    let all: String = (1..=p.pages() as u32)
+        .map(|n| p.page_text(n))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let all = squash(&all);
+    let body: Vec<&String> = if cells {
+        layout.body.iter().flatten().collect()
+    } else {
+        Vec::new()
+    };
+    for cell in layout.head.iter().chain(body) {
+        assert!(all.contains(&squash(cell)), "cut: {cell:?}");
+    }
+}
+
 #[test]
 fn the_pdf_table_fits_the_page_for_the_sample_attendee_list() {
     let t = attendee_table(
@@ -832,7 +846,7 @@ fn the_pdf_table_fits_the_page_for_the_sample_attendee_list() {
     );
     let width: f32 = column_widths(&t).iter().sum();
     assert!(width <= PRINTABLE + 0.01, "{width}");
-    to_pdf(&t).unwrap();
+    assert_no_word_cut(&t, true);
 }
 
 #[test]
@@ -850,6 +864,8 @@ fn the_pdf_table_fits_the_page_for_the_widest_attendee_values() {
     assert!(text.contains("and Upper Bowl"), "{text}");
     let pass = t.columns.iter().position(|c| c.header == "Pass").unwrap();
     assert!(widths[pass] < 100.0, "{widths:?}");
+    // The widest values squeeze every text column to its minimum: the headings stay whole.
+    assert_no_word_cut(&t, false);
 }
 
 #[test]

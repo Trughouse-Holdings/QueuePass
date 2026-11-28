@@ -174,19 +174,20 @@ fn order_status(status: OrderStatus) -> &'static str {
 
 /// Spec 038: Price level's room comes from Name on tickets, Tier and Seat, so the PDF's minimum
 /// widths still fit letter landscape with the widest values (023 review round 1; `pdf.fit`).
-/// Spec 041 (R8): Pass's room comes from Name on tickets, Seat and the two status columns.
+/// Spec 041 (R8): Pass's room comes from Customer, Name on tickets, Seat and the two status
+/// columns, each status column still wide enough for its longest word ("Confirmed") here.
 fn attendee_columns() -> Vec<ExportColumn> {
     vec![
         ExportColumn::new("Order placed", CellKind::DateTime, 18),
-        ExportColumn::new("Customer", CellKind::Text, 17),
-        ExportColumn::new("Name on tickets", CellKind::Text, 18),
+        ExportColumn::new("Customer", CellKind::Text, 15),
+        ExportColumn::new("Name on tickets", CellKind::Text, 16),
         ExportColumn::new("Tier", CellKind::Text, 15),
         ExportColumn::new("Price level", CellKind::Text, 14),
-        ExportColumn::new("Seat", CellKind::Text, 18),
+        ExportColumn::new("Seat", CellKind::Text, 16),
         ExportColumn::new("Ticket code", CellKind::Text, 15).nowrap(),
-        ExportColumn::new("Ticket status", CellKind::Text, 10),
+        ExportColumn::new("Ticket status", CellKind::Text, 12),
         ExportColumn::new("Checked in", CellKind::DateTime, 18),
-        ExportColumn::new("Order status", CellKind::Text, 12),
+        ExportColumn::new("Order status", CellKind::Text, 13),
         // Spec 041 (R8): the Season of an order bought on a pass; wraps like the other text columns.
         ExportColumn::new("Pass", CellKind::Text, 12),
         ExportColumn::new("Price", CellKind::Money, 11),
