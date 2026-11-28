@@ -404,6 +404,26 @@ fn each_operation_names_the_react_apps_method_and_path() {
             format!("/events/{ID}/images/order"),
         ),
         (ops::get_sales_report(), "GET", "/reports/sales".into()),
+        // Spec 041 (seasons.ts).
+        (ops::list_seasons(), "GET", "/seasons".into()),
+        (ops::get_season(ID), "GET", format!("/seasons/{ID}")),
+        (ops::create_season(&json!({})), "POST", "/seasons".into()),
+        (
+            ops::update_season(ID, &json!({})),
+            "PUT",
+            format!("/seasons/{ID}"),
+        ),
+        (ops::delete_season(ID), "DELETE", format!("/seasons/{ID}")),
+        (
+            ops::publish_season(ID),
+            "POST",
+            format!("/seasons/{ID}/publish"),
+        ),
+        (
+            ops::cancel_season(ID),
+            "POST",
+            format!("/seasons/{ID}/cancel"),
+        ),
     ];
     for (call, verb, route) in cases {
         assert_eq!(
@@ -457,4 +477,80 @@ async fn an_image_is_sent_as_one_file_part() {
         .await
         .unwrap();
     assert_eq!(image.byte_size.get(), 4);
+}
+
+/// The React app's Season fixture (`tests/fixtures/api/Season.json`).
+fn season_fixture() -> serde_json::Value {
+    let path =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/api/Season.json");
+    serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+}
+
+#[tokio::test]
+async fn the_season_calls_send_their_bodies_and_read_the_seasons_back() {
+    // Spec 041 (research R12): the seven calls of `admin-app/src/api/seasons.ts`.
+    let server = MockServer::start().await;
+    let season = season_fixture();
+    let sid = season["id"].as_str().unwrap().to_string();
+    let input = json!({ "name": "Spring Hoops", "eventIds": [], "prices": [] });
+    Mock::given(method("GET"))
+        .and(path("/seasons"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([season.clone()])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/seasons"))
+        .and(body_json(&input))
+        .respond_with(ResponseTemplate::new(201).set_body_json(&season))
+        .expect(1)
+        .mount(&server)
+        .await;
+    for (verb, route) in [
+        ("GET", format!("/seasons/{sid}")),
+        ("PUT", format!("/seasons/{sid}")),
+        ("POST", format!("/seasons/{sid}/publish")),
+    ] {
+        Mock::given(method(verb))
+            .and(path(route))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&season))
+            .expect(1)
+            .mount(&server)
+            .await;
+    }
+    Mock::given(method("DELETE"))
+        .and(path(format!("/seasons/{sid}")))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(format!("/seasons/{sid}/cancel")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "season": season.clone(),
+            "passesRefunded": 1,
+            "ordersRefunded": 1,
+            "ticketsVoided": 2
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let (client, _) = client(&server);
+    assert_eq!(client.list_seasons().await.unwrap().len(), 1);
+    assert_eq!(
+        client.create_season(&input).await.unwrap().id.to_string(),
+        sid
+    );
+    assert_eq!(
+        client.get_season(&sid).await.unwrap().name.as_str(),
+        "Spring Hoops"
+    );
+    client.update_season(&sid, &input).await.unwrap();
+    client.publish_season(&sid).await.unwrap();
+    client.delete_season(&sid).await.unwrap();
+    let cancelled = client.cancel_season(&sid).await.unwrap();
+    assert_eq!(
+        (cancelled.passes_refunded, cancelled.tickets_voided),
+        (1, 2)
+    );
 }

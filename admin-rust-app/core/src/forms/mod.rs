@@ -4,5 +4,6 @@ pub mod event;
 pub mod images;
 pub mod layouts;
 pub mod off_sale;
+pub mod season;
 pub mod section_lines;
 pub mod venue;

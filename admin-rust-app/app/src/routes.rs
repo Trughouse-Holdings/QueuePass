@@ -33,6 +33,10 @@ pub fn AppRoutes() -> impl IntoView {
                     <Route path=path!("events/:id") view=pages::event_detail::EventDetail/>
                     <Route path=path!("events/:id/edit") view=pages::event_form::EventForm/>
                     <Route path=path!("events/:id/attendees") view=pages::attendees::Attendees/>
+                    // Spec 041 (R11, R12): the Seasons list, a new Season, and one Season's page.
+                    <Route path=path!("seasons") view=pages::seasons::Seasons/>
+                    <Route path=path!("seasons/new") view=pages::season_form::SeasonForm/>
+                    <Route path=path!("seasons/:id") view=pages::season_form::SeasonForm/>
                     <Route path=path!("reports") view=pages::reports::Reports/>
                 </ParentRoute>
             </Routes>

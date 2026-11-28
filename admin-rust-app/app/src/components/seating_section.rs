@@ -79,7 +79,7 @@ enum LayoutShape {
 #[component]
 pub fn SeatingSection(state: FormSignal, preview: PreviewSignal) -> impl IntoView {
     let options = Memo::new(move |_| state.with(|s| s.layout_options()));
-    let lock = Memo::new(move |_| state.with(|s| s.layout_lock_reason()));
+    let lock = Memo::new(move |_| state.with(|s| s.layout_lock_reason().map(str::to_string)));
     let invalid = Memo::new(move |_| state.with(|s| s.field_invalid("layoutId")));
     let choice = move || state.with(|s| s.seating.layout_id.clone().unwrap_or_default());
     let shape = Memo::new(move |_| {

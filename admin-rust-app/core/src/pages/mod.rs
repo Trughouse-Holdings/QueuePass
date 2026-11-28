@@ -2,3 +2,4 @@
 
 pub mod attendees_reports;
 pub mod event_page;
+pub mod seasons;

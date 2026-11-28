@@ -83,6 +83,12 @@ fn an_order_with_its_tickets() {
 }
 
 #[test]
+fn a_season() {
+    // Spec 041: the React app's own Season fixture (`fixtures-041.ts`), on sale with a pass sold.
+    check::<types::Season>("Season", "Season", false);
+}
+
+#[test]
 fn layouts() {
     check::<types::LayoutSummary>("LayoutSummary", "LayoutSummary", false);
     check::<types::LayoutDetail>("LayoutDetail", "LayoutDetail", false);
@@ -272,6 +278,11 @@ fn the_edit_forms_event_tiers_seating_and_availability() {
     use admin_rust_core::forms::event::{Availability, EventLoad, EventSeating, Tier};
     let (event, _) = check_hand_written::<EventLoad>("Event", example("Event"));
     assert_eq!(event.name, example("Event")["name"].as_str().unwrap());
+    // Spec 041: an event in a Season names it.
+    let mut in_season = example("Event");
+    in_season["season"] = json!({ "id": "c0000000-0000-4000-8000-00000000000c", "name": "Hoops" });
+    let (event, _) = check_hand_written::<EventLoad>("Event", in_season);
+    assert_eq!(event.season.map(|s| s.name).as_deref(), Some("Hoops"));
 
     let tier = json!({
         "id": "0b8f5a0e-6a43-4c3a-9a55-0e1f4e0c2d11",

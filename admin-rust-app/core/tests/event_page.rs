@@ -7,8 +7,9 @@ use admin_rust_core::pages::event_page::{
     DeleteKind, GalleryVariant, TierDraft, allocated_line, already_gone_notice, cancel_confirm,
     cancel_done, checked_in_line, count_line, delete_confirm, deleted_notice, gallery_box_height,
     height_style, image_alt, image_position, js_number_of, json_number_of, level_price_cell,
-    level_sold_cell, per_customer, remove_tier_confirm, sold_line, step_index, tier_create_body,
-    tier_sold_cell, tier_update_body, view_button_label, wanted_around,
+    level_sold_cell, per_customer, remove_tier_confirm, season_link, single_sales_line, sold_line,
+    step_index, tier_create_body, tier_sold_cell, tier_update_body, view_button_label,
+    wanted_around,
 };
 use serde_json::json;
 
@@ -229,5 +230,27 @@ fn gallery_names() {
     assert_eq!(
         image_alt("Season Opener", 2, 3),
         "Season Opener, image 3 of 3"
+    );
+}
+
+#[test]
+fn an_event_in_a_season_names_it_linked_and_says_when_single_tickets_go_on_sale() {
+    // Spec 041 FR-013, FR-019 (T040; `event-season.test.tsx`): in the venue's zone.
+    assert_eq!(
+        season_link("c0000000-0000-4000-8000-00000000000c"),
+        "/seasons/c0000000-0000-4000-8000-00000000000c"
+    );
+    assert_eq!(
+        single_sales_line("2026-09-28T14:00:00.000Z", Some("America/New_York")),
+        "Single tickets on sale from Sep 28, 2026, 10:00 AM EDT"
+    );
+    assert_eq!(
+        single_sales_line("2026-09-28T14:00:00.000Z", Some("America/Chicago")),
+        "Single tickets on sale from Sep 28, 2026, 9:00 AM CDT"
+    );
+    // No zone is Eastern, as `when` reads it.
+    assert_eq!(
+        single_sales_line("2026-12-01T15:00:00Z", None),
+        "Single tickets on sale from Dec 1, 2026, 10:00 AM EST"
     );
 }

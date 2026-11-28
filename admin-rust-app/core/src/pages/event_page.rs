@@ -22,6 +22,20 @@ pub fn per_customer(max: Option<u64>) -> String {
     }
 }
 
+/// Spec 041 FR-019: the event page's link to the event's Season.
+pub fn season_link(season_id: &str) -> String {
+    format!("/seasons/{season_id}")
+}
+
+/// Spec 041 FR-013 (T040): while the presale runs, when single tickets go on sale, in the venue's
+/// zone: "Single tickets on sale from Sep 28, 2026, 10:00 AM EDT".
+pub fn single_sales_line(single_sales_open_at: &str, time_zone: Option<&str>) -> String {
+    format!(
+        "Single tickets on sale from {}",
+        crate::format::when(single_sales_open_at, time_zone)
+    )
+}
+
 /// `useCancel`'s question (spec 005 FR-008).
 pub fn cancel_confirm(name: &str) -> String {
     format!(
@@ -51,6 +65,8 @@ pub fn cancel_done(orders_refunded: u64, tickets_voided: u64) -> String {
 pub enum DeleteKind {
     Venue,
     Event,
+    /// Spec 041: a draft Season.
+    Season,
 }
 
 impl DeleteKind {
@@ -58,6 +74,7 @@ impl DeleteKind {
         match self {
             DeleteKind::Venue => "venue",
             DeleteKind::Event => "event",
+            DeleteKind::Season => "season",
         }
     }
 }

@@ -141,6 +141,12 @@ pub mod lock_reason {
     /// `lockReason.type`: Remove on a ticket type with sales.
     pub const TYPE: &str = "Can't be removed: tickets have been sold.";
 
+    /// Spec 041 FR-007, FR-019 (`seasonLockReason`): an event in a Season keeps its venue,
+    /// layout and seating kind.
+    pub fn season(season: &str) -> String {
+        format!("In season: {season}. Its venue, layout and seating can't change.")
+    }
+
     /// `lockReason.quantity`.
     pub fn quantity(sold: i64) -> String {
         format!(
@@ -1106,6 +1112,26 @@ pub struct EventLoad {
     pub base_price: String,
     #[serde(default)]
     pub images: Option<Vec<EventImage>>,
+    /// Spec 041 FR-019: the Season the event is in, cancelled Seasons included.
+    #[serde(default)]
+    pub season: Option<EventSeason>,
+}
+
+/// Spec 041: an event's Season (`SeasonRef`).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct EventSeason {
+    pub id: String,
+    pub name: String,
+}
+
+/// Spec 041 FR-019: the Season the edited event is in, and whether it holds the venue and
+/// seating (not cancelled, FR-007), as read from the Season itself.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InSeason {
+    pub id: String,
+    pub name: String,
+    pub locks: bool,
+    reason: String,
 }
 
 /// A ticket type as `listTiers` gives it.
@@ -1383,6 +1409,8 @@ pub struct EventFormState<F = NamedFile> {
     pub busy: bool,
     pub images: ImageList<F>,
     pub images_notice: Option<String>,
+    /// Spec 041: the Season the edited event is in.
+    pub season: Option<InSeason>,
 }
 
 impl<F: ImageFile> EventFormState<F> {
@@ -1433,6 +1461,7 @@ impl<F: ImageFile> EventFormState<F> {
             busy: false,
             images: ImageList::default(),
             images_notice: None,
+            season: None,
         }
     }
 
@@ -1497,6 +1526,13 @@ impl<F: ImageFile> EventFormState<F> {
         self.name = event.name.clone();
         self.location_id = event.location_id.clone();
         self.event_venue = event.location.clone();
+        // Spec 041: locked until `getSeason` says the Season is cancelled.
+        self.season = event.season.as_ref().map(|s| InSeason {
+            id: s.id.clone(),
+            name: s.name.clone(),
+            locks: true,
+            reason: lock_reason::season(&s.name),
+        });
         let zone = event
             .location
             .as_ref()
@@ -2814,13 +2850,33 @@ impl<F: ImageFile> EventFormState<F> {
         out
     }
 
-    /// Why the Seating select is disabled: once something is sold (M8, E8).
-    pub fn layout_lock_reason(&self) -> Option<&'static str> {
-        (self.sold.event_sold > 0).then_some(if self.seated() {
-            lock_reason::LAYOUT
-        } else {
-            lock_reason::SEATING
+    /// Why the Seating select is disabled: while in a Season not cancelled (spec 041), or once
+    /// something is sold (M8, E8).
+    pub fn layout_lock_reason(&self) -> Option<&str> {
+        self.season_lock().or_else(|| {
+            (self.sold.event_sold > 0).then_some(if self.seated() {
+                lock_reason::LAYOUT
+            } else {
+                lock_reason::SEATING
+            })
         })
+    }
+
+    /// Spec 041 FR-007, FR-019: why the venue and seating can't change while the event is in a
+    /// Season not cancelled; `None` otherwise.
+    pub fn season_lock(&self) -> Option<&str> {
+        self.season
+            .as_ref()
+            .filter(|s| s.locks)
+            .map(|s| s.reason.as_str())
+    }
+
+    /// `getSeason` answered for the event's Season: it holds the venue and seating unless
+    /// cancelled. An answer for another Season is ignored.
+    pub fn season_status_loaded(&mut self, season_id: &str, cancelled: bool) {
+        if let Some(season) = self.season.as_mut().filter(|s| s.id == season_id) {
+            season.locks = !cancelled;
+        }
     }
 
     /// [`LOADING_LAYOUT`] while the chosen layout loads.

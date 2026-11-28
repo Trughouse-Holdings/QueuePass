@@ -17,6 +17,7 @@ import {
   arenaVenueMap,
 } from '../../../../../admin-app/test/fixtures-038';
 import { DRAWING } from '../../../../../admin-app/test/layout-editor/fixtures';
+import { season } from '../../../../../admin-app/test/fixtures-041';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -39,8 +40,10 @@ function withUuids(value: unknown, key = ''): unknown {
 
 /**
  * The spec 005 fixtures predate fields the contract later made required. Only those are added, with
- * neutral values: the venue's zone (spec 020) and, on events, no layout, no seated top price, and
- * no check-in removal (specs 038, 032). Nothing a fixture already has is changed.
+ * neutral values: the venue's zone (spec 020); on events, no layout, no seated top price, no
+ * check-in removal (specs 038, 032), and no Season or presale (spec 041); no pass sales in the
+ * sales report and no Season pass on an order (spec 041). Nothing a fixture already has is
+ * changed.
  */
 function completed(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(completed);
@@ -57,11 +60,20 @@ function completed(value: unknown): unknown {
     add('layoutId', null);
     add('priceMax', null);
     add('checkInDetailsRemovedAt', null);
+    // Spec 041 (contract 2.2.0): no Season, so no presale.
+    add('season', null);
+    add('singleSalesOpenAt', null);
   }
   if ('eventId' in o && 'ticketsSold' in o) {
     add('timeZone', 'America/New_York');
     add('checkInDetailsRemovedAt', null);
   }
+  // Spec 041 (R8): no pass sales, per event and in the totals; no order bought on a pass.
+  if ('ticketsSold' in o && 'revenue' in o && 'checkedIn' in o) {
+    add('passTicketsSold', 0);
+    add('passRevenue', '0.00');
+  }
+  if ('customerUsername' in o && 'tickets' in o) add('seasonPass', null);
   return o;
 }
 
@@ -83,6 +95,16 @@ const examples: Record<string, unknown> = {
   LayoutDrawing: DRAWING,
   VenueMap: venueMap.map,
   VenueMapSection: venueMap.section('s-a'),
+  // Spec 041: a Season on sale with a pass sold and a presale (the page's figures and status).
+  Season: season({
+    status: 'ON_SALE',
+    singleSalesOpenAt: '2026-10-01T14:00:00.000Z',
+    maxPassesPerCustomer: 4,
+    publishedAt: '2026-09-22T12:00:00.000Z',
+    salesOpen: true,
+    passesSold: 1,
+    passRevenue: '100.00',
+  }),
 };
 
 for (const [name, example] of Object.entries(examples)) {
