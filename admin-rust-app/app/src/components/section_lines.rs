@@ -8,8 +8,8 @@
 use std::cell::Cell;
 
 use admin_rust_core::forms::section_lines::{
-    LEVEL_COLORS, LEVELS_HINT, LevelColor, LinesDraft, SECTIONS_HINT, SelectOption, line_seats,
-    seats_text,
+    LEVEL_COLORS, LEVELS_HINT, LevelColor, LineNeeded, LinesDraft, SECTIONS_HINT, SelectOption,
+    line_seats, seats_text,
 };
 use leptos::prelude::*;
 
@@ -105,6 +105,9 @@ pub fn SectionLines(
                         id=id("name")
                         aria-labelledby=labelled("name-label")
                         prop:value=name
+                        class=move || {
+                            draft.with(|d| d.level_name_needed(i)).then_some("input--needed")
+                        }
                         on:input=move |ev| on_edit.run(LinesEdit::LevelName(i, event_target_value(&ev)))
                     />
                 </div>
@@ -154,6 +157,11 @@ pub fn SectionLines(
                 move || draft.with(|d| d.lines.get(i).map(get).unwrap_or_default())
             };
         let level = field(|l| l.level.clone());
+        // A required box with no valid value yet is outlined in red at once.
+        let needed = Memo::new(move |_| draft.with(|d| d.line_needed(i)));
+        let red = move |pick: fn(LineNeeded) -> bool| {
+            move || pick(needed.get()).then_some("input--needed")
+        };
         // The options change only when the named levels or this line's level do.
         let options: Memo<Vec<SelectOption>> = Memo::new(move |_| {
             draft.with(|d| {
@@ -172,6 +180,7 @@ pub fn SectionLines(
                         id=id("name")
                         aria-labelledby=labelled("name-label")
                         prop:value=field(|l| l.name.clone())
+                        class=red(|n| n.name)
                         on:input=move |ev| on_edit.run(LinesEdit::LineName(i, event_target_value(&ev)))
                     />
                 </div>
@@ -184,6 +193,7 @@ pub fn SectionLines(
                         max="100"
                         aria-labelledby=labelled("rows-label")
                         prop:value=field(|l| l.rows.clone())
+                        class=red(|n| n.rows)
                         on:input=move |ev| on_edit.run(LinesEdit::LineRows(i, event_target_value(&ev)))
                     />
                 </div>
@@ -197,6 +207,7 @@ pub fn SectionLines(
                         max="200"
                         aria-labelledby=labelled("seats-label")
                         prop:value=field(|l| l.seats_per_row.clone())
+                        class=red(|n| n.seats_per_row)
                         on:input=move |ev| on_edit.run(LinesEdit::LineSeats(i, event_target_value(&ev)))
                     />
                 </div>
@@ -206,6 +217,7 @@ pub fn SectionLines(
                         id=id("level")
                         aria-labelledby=labelled("level-label")
                         prop:value=level
+                        class=red(|n| n.level)
                         on:change=move |ev| on_edit.run(LinesEdit::LineLevel(i, event_target_value(&ev)))
                     >
                         {move || {

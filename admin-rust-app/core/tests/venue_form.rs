@@ -18,9 +18,10 @@ mod contract;
 use admin_rust_core::api::client::{ApiError, error_from};
 use admin_rust_core::api::types::{LayoutDetail, LayoutSummary, LevelColor, Location};
 use admin_rust_core::forms::section_lines::{
-    CHOOSE_A_LEVEL, LEVEL_COLORS, LEVELS_HINT, LevelLine, LinesDraft, SECTIONS_HINT, SectionLine,
-    SelectOption, draft_of, js_number, js_number_string, json_number, line_seats, new_level,
-    new_line, seats_text, to_lines_input, to_locale_string, total_seats, total_text,
+    CHOOSE_A_LEVEL, LEVEL_COLORS, LEVELS_HINT, LevelLine, LineNeeded, LinesDraft, SECTIONS_HINT,
+    SectionLine, SelectOption, draft_of, js_number, js_number_string, json_number, line_seats,
+    new_level, new_line, seats_text, to_lines_input, to_locale_string, total_seats, total_text,
+    whole_in,
 };
 use admin_rust_core::forms::venue::{
     ADDRESS_ZONE_HINT, Address, CAPACITY_HINT, CapacityField, FIRST_LAYOUT, LAYOUT_REFUSED_LINK,
@@ -1704,4 +1705,97 @@ fn the_seated_lines_use_the_same_level_colors_as_the_contract() {
     let listed = doc["components"]["schemas"]["LevelColor"]["enum"].clone();
     let ours: Vec<String> = LEVEL_COLORS.iter().map(|c| c.to_string()).collect();
     assert_eq!(json!(ours), listed);
+}
+
+// ---------------------------------------------------------------- red outline and "Required"
+
+#[test]
+fn new_venue_outlines_each_required_field_with_no_valid_value_in_red() {
+    let f = VenueFormState::new_venue();
+    for id in [
+        "name",
+        "street",
+        "city",
+        "state",
+        "zip",
+        "timeZone",
+        "seatingCapacity",
+    ] {
+        assert!(f.needed(id), "{id}");
+    }
+    let f = filled_new();
+    for id in [
+        "name",
+        "street",
+        "city",
+        "state",
+        "zip",
+        "timeZone",
+        "seatingCapacity",
+    ] {
+        assert!(!f.needed(id), "{id}");
+    }
+    let mut f = filled_new();
+    f.address.zip = "4020".into();
+    f.seating_capacity = "0".into();
+    assert!(f.needed("zip"));
+    assert!(f.needed("seatingCapacity"));
+    f.seating_capacity = " 12 ".into();
+    assert!(!f.needed("seatingCapacity"));
+    f.seating_capacity = "1.5".into();
+    assert!(f.needed("seatingCapacity"));
+}
+
+#[test]
+fn an_unchanged_verified_address_on_edit_is_not_outlined_nor_the_zone() {
+    let mut f = edit_of(verified());
+    assert!(!f.send_address());
+    f.address.street = String::new();
+    assert!(f.send_address());
+    assert!(f.needed("street"));
+    let f = edit_of(verified());
+    assert!(!f.needed("street"));
+    assert!(!f.needed("timeZone"));
+}
+
+#[test]
+fn section_lines_outline_a_blank_name_rows_or_seats_out_of_range_and_an_unnamed_level() {
+    assert!(whole_in("1", 100));
+    assert!(whole_in(" 100 ", 100));
+    assert!(!whole_in("101", 100));
+    assert!(!whole_in("0", 100));
+    assert!(!whole_in("", 100));
+    assert!(!whole_in("2.5", 100));
+    assert!(!whole_in("99999999999999999999999", 100));
+
+    let mut d = LinesDraft {
+        name: "Standard".into(),
+        levels: vec![level("", LevelColor::Violet)],
+        lines: vec![SectionLine {
+            name: " ".into(),
+            rows: "0".into(),
+            seats_per_row: "201".into(),
+            level: "Floor".into(),
+        }],
+    };
+    assert!(d.level_name_needed(0));
+    assert_eq!(
+        d.line_needed(0),
+        LineNeeded {
+            name: true,
+            rows: true,
+            seats_per_row: true,
+            level: true
+        }
+    );
+    d.levels[0].name = "Floor".into();
+    d.lines[0] = SectionLine {
+        name: "101".into(),
+        rows: "10".into(),
+        seats_per_row: "20".into(),
+        level: "Floor".into(),
+    };
+    assert!(!d.level_name_needed(0));
+    assert_eq!(d.line_needed(0), LineNeeded::default());
+    assert_eq!(d.line_needed(5), LineNeeded::default());
 }

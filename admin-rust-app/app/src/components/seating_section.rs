@@ -212,6 +212,8 @@ fn level_row(
             (id.clone(), key.clone(), key.clone(), error_id.clone());
         let invalid_key = key.clone();
         let invalid = Memo::new(move |_| state.with(|s| s.field_invalid(&invalid_key)));
+        let needed_key = key.clone();
+        let needed = Memo::new(move |_| state.with(|s| s.needed(&needed_key)));
         let value_id = id.clone();
         let hint_id = error_id.clone();
         view! {
@@ -228,9 +230,15 @@ fn level_row(
                     let value = event_target_value(&ev);
                     edit(state, |s| s.set_level_price(&id, &value));
                 }
+                class=move || needed.get().then_some("input--needed")
                 aria-invalid=move || invalid.get().then_some("true")
                 aria-describedby=move || invalid.get().then(|| error_id.clone())
             />
+            {move || {
+                needed
+                    .get()
+                    .then(|| view! { <span class="required-tag" aria-hidden="true">"Required"</span> })
+            }}
             {hint(move || hint_id.clone(), move || state.with(|s| s.field_hint(&hint_key)))}
         }
         .into_any()
