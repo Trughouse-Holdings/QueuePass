@@ -314,7 +314,8 @@ layout ("Cardinals Men vs. Miami", "vs. Virginia", "vs. Syracuse", 10, 17 and 24
 19:00 local), each priced like the existing Basketball event, created through `EventsService`, and a
 Season "Louisville Cardinals Basketball 2026–27" (Basketball, Louisville Cardinals) through
 `SeasonsService`: every level priced, sales ending at the first game's start, single tickets on sale
-3 days after the run, put on sale. The layout is already imported, so no new seats load (#179's
+3 days after the run at 10:00 local (a round local time, so two resets give the same Season;
+implementation note), put on sale. The layout is already imported, so no new seats load (#179's
 slow import is not made worse).
 
 ## R14. What this spec PR ships, and what the implementation does

@@ -42,6 +42,10 @@ const DEMO_EVENTS = [
   'Cardinals Men vs. Kentucky',
   'Arena Tour: Live',
   'WWE Saturday Night',
+  // Spec 041 (R13): the Season's three games.
+  'Cardinals Men vs. Miami',
+  'Cardinals Men vs. Virginia',
+  'Cardinals Men vs. Syracuse',
 ];
 const DAY = 86_400_000;
 
@@ -243,6 +247,43 @@ async function fingerprint(prisma: PrismaService) {
         ended: r.endedAt !== null,
       })),
     ),
+    // Spec 041 (SC-005): each Season with its venue, layout, times relative to the run (as the
+    // events'), events by name, and prices by level or name.
+    seasons: sorted(
+      (
+        await prisma.season.findMany({
+          include: {
+            location: true,
+            layout: true,
+            events: true,
+            prices: { include: { level: true } },
+          },
+        })
+      ).map((s) => ({
+        name: s.name,
+        sport: s.sport,
+        team: s.team,
+        venue: s.location.name,
+        layout: s.layout?.name ?? null,
+        status: s.status,
+        published: s.publishedAt !== null,
+        maxPasses: s.maxPassesPerCustomer,
+        salesEnd: [
+          (Date.parse(localDate(s.salesEndAt, s.location.timeZone)) - refDay) / DAY,
+          toLocalDateTime(s.salesEndAt, s.location.timeZone).slice(11),
+        ],
+        presale: s.singleSalesOpenAt
+          ? [
+              (Date.parse(localDate(s.singleSalesOpenAt, s.location.timeZone)) - refDay) / DAY,
+              toLocalDateTime(s.singleSalesOpenAt, s.location.timeZone).slice(11),
+            ]
+          : null,
+        events: s.events.map((e) => eventName.get(e.eventId)).sort(),
+        prices: s.prices
+          .map((p) => [p.level?.name ?? p.tierName, p.price.toString()])
+          .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+      })),
+    ),
     holds: sorted(
       (await prisma.seatHold.findMany()).map((h) => ({
         event: eventName.get(h.eventId),
@@ -402,13 +443,21 @@ describe('Demo reset (spec 029)', () => {
       expect(summary.created).toMatchObject({
         created: true,
         venues: 3,
-        events: 9,
+        events: 12,
+        season: 'Louisville Cardinals Basketball 2026–27',
         past: 'Season Opener',
       });
       for (const n of Object.values(summary.removed.tables)) expect(n).toBe(0);
       f0 = await fingerprint(ctx.prisma);
       expect(f0.locations).toHaveLength(3);
-      expect(f0.events).toHaveLength(9);
+      expect(f0.events).toHaveLength(12);
+      // Spec 041 (SC-005): the Season, on sale with its three games and four prices.
+      expect(f0.seasons).toHaveLength(1);
+      expect(JSON.parse(f0.seasons[0])).toMatchObject({
+        name: 'Louisville Cardinals Basketball 2026–27',
+        status: 'ON_SALE',
+        layout: 'Basketball',
+      });
       // Spec 038 (research R18): four layouts with all their seats, two events with seats off
       // sale, and sold seats with no live hold.
       expect(f0.layouts).toHaveLength(4);
@@ -466,6 +515,12 @@ describe('Demo reset (spec 029)', () => {
         if (columns.includes('sectionId')) {
           foreign.push(
             `"sectionId" NOT IN (SELECT "id" FROM "Section" WHERE "layoutId" IN (${demoLayouts}))`,
+          );
+        }
+        // Spec 041: a Season's prices (and passes), by the demo Season.
+        if (columns.includes('seasonId')) {
+          foreign.push(
+            `"seasonId" NOT IN (SELECT "id" FROM "Season" WHERE "name" = 'Louisville Cardinals Basketball 2026–27')`,
           );
         }
         const where = foreign.length > 0 ? foreign.join(' OR ') : 'true';
@@ -605,7 +660,7 @@ describe('Demo reset (spec 029)', () => {
       expect(c).toMatchObject({
         created: true,
         venues: 3,
-        events: 9,
+        events: 12,
         cancelled: 'Holiday Gala',
         past: 'Season Opener',
       });
@@ -647,8 +702,8 @@ describe('Demo reset (spec 029)', () => {
           `${n(before.SeasonPassHold, 'season pass hold')}.`,
       );
       expect(out).toContain(
-        `Created: 3 venues, 4 layouts, 9 events (Holiday Gala cancelled, Season Opener over), ` +
-          `${c.orders} orders, ${c.tickets} tickets (${c.checkedIn} checked in), ${c.images} images.`,
+        `Created: 3 venues, 4 layouts, 12 events (Holiday Gala cancelled, Season Opener over), ` +
+          `1 season (Louisville Cardinals Basketball 2026–27, on sale), ${c.orders} orders, ${c.tickets} tickets (${c.checkedIn} checked in), ${c.images} images.`,
       );
       expect(out).toContain(
         'KFC Yum! Center layouts: Basketball, 22,090 seats; End-stage concert, 17,500 seats; ' +
@@ -754,7 +809,7 @@ describe('Demo reset (spec 029)', () => {
       // One more run ends in the demo state (spec Edge Cases).
       await reset();
       expect(await ctx.prisma.location.count()).toBe(3);
-      expect(await ctx.prisma.event.count()).toBe(9);
+      expect(await ctx.prisma.event.count()).toBe(12);
     });
   });
 });

@@ -227,13 +227,13 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 **Goal**: FR-023.
 **Independent test**: quickstart S0; two resets give the same Season.
 
-- [ ] T041 [US5] *(test first)* `backend/test/integration/demo-reset.e2e-spec.ts` and
+- [X] T041 [US5] *(test first)* `backend/test/integration/demo-reset.e2e-spec.ts` and
   `demo-data.e2e-spec.ts`: update the "Created: … 9 events" line (now 12 events and a Season) and,
   after the reset, "Louisville Cardinals Basketball 2026–27" is `ON_SALE` at the KFC Yum!
   Center on Basketball with 3 games ("Cardinals Men vs. Miami", "vs. Virginia", "vs. Syracuse", 10,
   17 and 24 days after the run, 19:00 local), every level priced, sales ending at the first game's
   start, single tickets on sale 3 days after the run; identical on a second run
-- [ ] T042 [US5] `backend/src/scripts/demo-data.ts`: the games through `EventsService`, the Season
+- [X] T042 [US5] `backend/src/scripts/demo-data.ts`: the games through `EventsService`, the Season
   through `SeasonsService` (create, publish), after `createSeatedDemo` (R13); the reset's summary
   names the Season. Update `e2e/tests/038-seat-maps.spec.ts` S0, which expects the Basketball
   layout "used by 2 events" (now 5)
