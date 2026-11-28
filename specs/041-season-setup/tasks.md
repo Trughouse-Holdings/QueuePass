@@ -126,12 +126,16 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
   beside its field with every value kept; Save then Put on sale
 - [X] T020 [US1] `admin-app/src/pages/Seasons.tsx`, `SeasonForm.tsx`; routes `/seasons`,
   `/seasons/new`, `/seasons/:id` and a Seasons nav link between Events and Reports in
-  `admin-app/src/App.tsx` (R11); date-and-time controls as the event form (`036`)
+  `admin-app/src/App.tsx` (R11); date-and-time controls as the event form (`036`). #189 merged
+  (2026-11-28): the form outlines missing required fields in red with "Required" for the eye
+  (name, venue, layout choice, pass sales end; each level price of a Season on sale), as the event
+  form does (FR-017; commit 5509419)
 - [X] T021 [P] [US1] *(test first)* `admin-rust-app/core/tests/season_form.rs`: T017's cases
 - [X] T022 [US1] `admin-rust-app/core/src/forms/season.rs`, `core/src/pages/seasons.rs` (status
   text, picker filter), the Season ops in `core/src/api/client.rs` (`pub mod ops`) to pass T021
 - [X] T023 [US1] `admin-rust-app/app/src/pages/seasons.rs`, `season_form.rs`, routes in
-  `app/src/routes.rs`, nav in `app/src/shell.rs`, with the React markup and class names (R12)
+  `app/src/routes.rs`, nav in `app/src/shell.rs`, with the React markup and class names (R12);
+  #189's red outline and "Required" on the same fields as T020
 
 **Checkpoint**: S1–S4 pass in both Admin apps.
 
