@@ -357,6 +357,16 @@ test('037 S11: every page has the same structure and arrangement in both Admin a
         await rust.goto(`${RUST.url}${route}`);
         const [reactMain, rustMain] = [await settled(react), await settled(rust)];
         const path = route.split('?')[0]!;
+        // An event page's Sales card renders nothing until the whole sales report loads, after
+        // the page has settled; wait for it in both, or the pages can match without it and then
+        // be measured after only one has it (CI run 46129575059, PR #195).
+        if (/^\/events\/[^/]+$/.test(path) && path !== '/events/new') {
+          await Promise.all(
+            [reactMain, rustMain].map((m) =>
+              expect(m.locator('#sales-heading')).toBeVisible({ timeout: 30_000 }),
+            ),
+          );
+        }
         // Cards that load after the page (Sales, the seat map) are waited for in both. Reports
         // lists every event, and Seasons every Season (spec 041), which tests running beside this
         // one add to: both are reloaded until they load the same ones.
