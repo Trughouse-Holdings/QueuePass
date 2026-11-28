@@ -23,19 +23,20 @@ const ORDER_STATUS: Record<Order['status'], string> = {
 /**
  * Spec 038: Price level's room comes from Name on tickets, Tier and Seat, so the PDF's minimum
  * widths still fit letter landscape with the widest values (023 review round 1; `pdf.fit.test`).
- * Spec 041 (R8): Pass's room comes from Name on tickets, Seat and the two status columns.
+ * Spec 041 (R8): Pass's room comes from Customer, Name on tickets, Seat and the two status columns,
+ * each status column still wide enough for its longest word ("Confirmed") in the Rust PDF.
  */
 const COLUMNS: ExportColumn[] = [
   { header: 'Order placed', kind: 'dateTime', width: 18 },
-  { header: 'Customer', kind: 'text', width: 17 },
-  { header: 'Name on tickets', kind: 'text', width: 18 },
+  { header: 'Customer', kind: 'text', width: 15 },
+  { header: 'Name on tickets', kind: 'text', width: 16 },
   { header: 'Tier', kind: 'text', width: 15 },
   { header: 'Price level', kind: 'text', width: 14 },
-  { header: 'Seat', kind: 'text', width: 18 },
+  { header: 'Seat', kind: 'text', width: 16 },
   { header: 'Ticket code', kind: 'text', width: 15, nowrap: true },
-  { header: 'Ticket status', kind: 'text', width: 10 },
+  { header: 'Ticket status', kind: 'text', width: 12 },
   { header: 'Checked in', kind: 'dateTime', width: 18 },
-  { header: 'Order status', kind: 'text', width: 12 },
+  { header: 'Order status', kind: 'text', width: 13 },
   // Spec 041 (R8): the Season of an order bought on a pass; wraps like the other text columns.
   { header: 'Pass', kind: 'text', width: 12 },
   { header: 'Price', kind: 'money', width: 11 },
