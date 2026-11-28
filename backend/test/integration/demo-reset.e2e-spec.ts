@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import { localDate, toLocalDateTime } from '@queuepass/shared';
 import {
   assertMigrated,
+  loadWithStatisticsHeld,
   runDemoReset,
   wipeAppData,
   type ResetSummary,
@@ -786,6 +787,95 @@ describe('Demo reset (spec 029)', () => {
         await other.$disconnect();
       }
       expect(await ctx.prisma.location.findUnique({ where: { id } })).not.toBeNull();
+    });
+
+    // Fix #179 (research R15): an ANALYZE while an import's seats are uncommitted records `Seat` as
+    // nearly empty, and the layout reads planned from that took seconds each (a 90 s reset in CI).
+    // Here another client analyzes the seat tables every 200 ms, as autovacuum may at any moment;
+    // the reset still keeps SC-002's time. A reset alone ends by analyzing what it loaded.
+    it('leaves the statistics counting what it loaded (#179)', async () => {
+      await reset();
+      const seats = await ctx.prisma.seat.count();
+      expect(seats).toBe(77_090);
+      // Review round 1, n7: SeatRow too, the other table the slow plan read.
+      for (const [table, rows] of [
+        ['Seat', seats],
+        ['SeatRow', await ctx.prisma.seatRow.count()],
+      ] as const) {
+        const [{ estimate }] = await ctx.prisma.$queryRawUnsafe<{ estimate: number }[]>(
+          `SELECT reltuples::float8 AS estimate FROM pg_class WHERE oid = '"${table}"'::regclass`,
+        );
+        expect([table, Math.abs(estimate - rows) / rows < 0.1]).toEqual([table, true]);
+      }
+    });
+
+    it('keeps its time while statistics are taken during the load (#179)', async () => {
+      const other = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+      let stop = false;
+      // Review round 1, n6: an ANALYZE that fails ends the loop and is rethrown when awaited.
+      const analyzing = (async () => {
+        while (!stop) {
+          await other.$executeRawUnsafe(
+            'ANALYZE "Seat", "SeatRow", "Section", "PriceLevel", "Layout"',
+          );
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      })();
+      analyzing.catch(() => undefined);
+      const t0 = Date.now();
+      try {
+        await reset();
+      } finally {
+        stop = true;
+        await analyzing;
+        await other.$disconnect();
+      }
+      expect(Date.now() - t0).toBeLessThan(10_000);
+    });
+
+    // Review round 1, n5: the hold passes the load's own error on as itself, and returns its result.
+    it("reports a load's own error as itself, and returns a load's result (#179)", async () => {
+      await expect(
+        loadWithStatisticsHeld(async () => {
+          throw new Error('the load failed on its own');
+        }),
+      ).rejects.toThrow('the load failed on its own');
+      await expect(loadWithStatisticsHeld(async () => 42)).resolves.toBe(42);
+    });
+
+    it('says the demo state is incomplete when the load cannot take its lock (#179, FR-013)', async () => {
+      const other = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+      let release!: () => void;
+      const released = new Promise<void>((r) => (release = r));
+      let holder: Promise<unknown> | undefined;
+      try {
+        await expect(
+          runDemoReset(ctx.app, {
+            log,
+            // After the wipe, as another reset's load would: SHARE UPDATE EXCLUSIVE on one table.
+            afterWipe: async () => {
+              let locked!: () => void;
+              const isLocked = new Promise<void>((r) => (locked = r));
+              holder = other.$transaction(
+                async (tx) => {
+                  await tx.$executeRawUnsafe('LOCK TABLE "Seat" IN SHARE UPDATE EXCLUSIVE MODE');
+                  locked();
+                  await released;
+                },
+                { timeout: 20_000 },
+              );
+              await isLocked;
+            },
+          }),
+        ).rejects.toThrow(/removed.*incomplete \(the database is busy\).*run it again/s);
+      } finally {
+        release();
+        await holder;
+        await other.$disconnect();
+      }
+      // One more run ends in the demo state (spec Edge Cases).
+      await reset();
+      expect(await ctx.prisma.location.count()).toBe(3);
     });
 
     it('never leaves two demo sets when two resets run at once (R10)', async () => {
