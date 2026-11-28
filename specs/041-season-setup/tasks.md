@@ -98,18 +98,18 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 **Goal**: an admin creates, saves and publishes a Season in either Admin app.
 **Independent test**: quickstart S1–S4; `listSeasons` shows it on sale to a customer token.
 
-- [ ] T012 [US1] *(test first)* `backend/test/integration/seasons.e2e-spec.ts`: `createSeason` as
+- [X] T012 [US1] *(test first)* `backend/test/integration/seasons.e2e-spec.ts`: `createSeason` as
   admin saves a draft with events and prices (`201`); as customer `403`; each FR-003/FR-004/FR-006
   refusal names its field (`400 VALIDATION_FAILED`, `details.fields`); an event in another Season is
   `409 EVENT_IN_SEASON` with `details.field: eventIds.<i>`; times with the wrong offset are
   `UTC_OFFSET_MISMATCH`; `listSeasons`/`getSeason` give admins drafts and customers only `ON_SALE`
   (`404` for a draft by id)
-- [ ] T013 [US1] *(test first)* in the same file: two concurrent `createSeason` naming one event:
+- [X] T013 [US1] *(test first)* in the same file: two concurrent `createSeason` naming one event:
   exactly one `201`, the other `409 EVENT_IN_SEASON` (FR-004, SC-002)
-- [ ] T014 [US1] *(test first)* `publishSeason`: refused with fewer than 2 events, a level unpriced
+- [X] T014 [US1] *(test first)* `publishSeason`: refused with fewer than 2 events, a level unpriced
   (`prices.<levelId>`), no name priced or an event without the name (general admission), sales end
   past; `409 SEASON_NOT_DRAFT` when on sale; success sets `ON_SALE` and `publishedAt`
-- [ ] T015 [US1] `backend/src/seasons/seasons.service.ts` `create`, `list`, `get`, `publish` under
+- [X] T015 [US1] `backend/src/seasons/seasons.service.ts` `create`, `list`, `get`, `publish` under
   `lockSeasonWrite` in one `LOCKING_TX` transaction; map the `SeasonEvent_pkey` unique violation to
   `409 EVENT_IN_SEASON`; controller handlers with `@Roles` as the contract; remove the
   `x-planned: '041'` markers of `listSeasons`, `createSeason`, `getSeason`, `publishSeason`

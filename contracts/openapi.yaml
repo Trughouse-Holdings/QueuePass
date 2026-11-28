@@ -2161,7 +2161,6 @@ paths:
         (`salesOpen`). Ordered by the start of each Season's earliest event, then name; Seasons
         with no events last, by name.
       operationId: listSeasons
-      x-planned: '041'
       x-required-roles: []
       responses:
         '200':
@@ -2183,7 +2182,6 @@ paths:
         also when two creates take the same event at once. Times are checked as event times are
         (feature 020: `LOCAL_TIME_SKIPPED`, `UTC_OFFSET_MISMATCH`, with `details.field`).
       operationId: createSeason
-      x-planned: '041'
       x-required-roles: [queuepass-admin]
       requestBody:
         required: true
@@ -2216,7 +2214,6 @@ paths:
         Feature 041. Admins can read any Season; any other caller only one on sale (`404`
         otherwise).
       operationId: getSeason
-      x-planned: '041'
       x-required-roles: []
       responses:
         '200':
@@ -2297,7 +2294,6 @@ paths:
         or after the start of its earliest event (`salesEndAt`). Refused `409 SEASON_NOT_DRAFT` when it is
         not a draft.
       operationId: publishSeason
-      x-planned: '041'
       x-required-roles: [queuepass-admin]
       responses:
         '200':
