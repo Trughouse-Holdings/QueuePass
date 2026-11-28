@@ -111,6 +111,34 @@ describe('cancelSeason (041 FR-014)', () => {
     expect(solo.tickets[0].status).toBe('VALID');
   });
 
+  it('first ends reservations whose 5 minutes ran out, at their expiry (spec 015 R3)', async () => {
+    const f = await seasonWithSoldPass(ctx);
+    const [{ now }] = await ctx.prisma.$queryRaw<{ now: Date }[]>`SELECT now() AS "now"`;
+    const createdAt = new Date(now.getTime() - 10 * 60_000);
+    const expiresAt = new Date(createdAt.getTime() + 5 * 60_000);
+    const reservation = await ctx.prisma.seatReservation.create({
+      data: { eventId: f.eventIds[0], customerSub: subFor('customer4'), createdAt, expiresAt },
+    });
+    await ctx.prisma.seatHold.create({
+      data: {
+        reservationId: reservation.id,
+        eventId: f.eventIds[0],
+        seatSection: '101',
+        seatRow: 2,
+        seatNumber: 1,
+        seatId: f.layout!.seat('101', 2, 1),
+        createdAt,
+      },
+    });
+    await cancel(f.seasonId).expect(200);
+    const ended = await ctx.prisma.seatReservation.findUniqueOrThrow({
+      where: { id: reservation.id },
+      include: { holds: true },
+    });
+    expect(ended.endedAt?.getTime()).toBe(expiresAt.getTime());
+    expect(ended.holds[0]).toMatchObject({ endReason: 'EXPIRED' });
+  });
+
   it('refunds pass orders already refunded by an event cancel only once', async () => {
     const f = await seasonWithSoldPass(ctx);
     await asAdmin(ctx).post(`/events/${f.eventIds[2]}/cancel`).expect(200);

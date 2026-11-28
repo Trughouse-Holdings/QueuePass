@@ -4770,7 +4770,11 @@ components:
       properties:
         levelId: { type: string, format: uuid }
         tierName: { type: string, minLength: 1, maxLength: 100 }
-        price: { type: string, pattern: '^\d+(\.\d{1,2})?$', example: '640.00' }
+        price:
+          type: string
+          pattern: '^\d{1,8}(\.\d{1,2})?$'
+          example: '640.00'
+          description: At most 99999999.99, the largest amount a price column holds.
 
     Season:
       description: |

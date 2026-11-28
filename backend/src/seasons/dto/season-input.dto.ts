@@ -48,8 +48,10 @@ export class SeasonPriceInputDto {
   tierName?: string;
 
   @IsString({ message: 'price must be a decimal string such as "640.00"' })
-  @Matches(/^\d+(\.\d{1,2})?$/, {
-    message: 'price must be a non-negative decimal string with at most 2 decimal places',
+  // Review 041: at most 8 whole digits, so the price fits the column's decimal(10,2).
+  @Matches(/^\d{1,8}(\.\d{1,2})?$/, {
+    message:
+      'price must be a non-negative decimal string up to 99999999.99, with at most 2 decimal places',
   })
   price!: string;
 }

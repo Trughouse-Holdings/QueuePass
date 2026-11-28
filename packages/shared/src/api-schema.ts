@@ -3400,7 +3400,10 @@ export interface components {
             /** Format: uuid */
             levelId?: string;
             tierName?: string;
-            /** @example 640.00 */
+            /**
+             * @description At most 99999999.99, the largest amount a price column holds.
+             * @example 640.00
+             */
             price: string;
         };
         /**

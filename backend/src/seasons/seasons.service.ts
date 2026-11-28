@@ -1,12 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { SCHEDULING_BUFFER_MINUTES, type UsTimeZone } from '@queuepass/shared';
+import type { UsTimeZone } from '@queuepass/shared';
 import type { Principal } from '../auth/principal';
 import { conflict } from '../common/conflict';
 import { LOCKING_TX } from '../common/event-lock';
 import { checkEventTime } from '../events/event-time';
 import { PrismaService } from '../prisma/prisma.service';
-import { closeHolds, fromHeld } from '../reservations/holds';
+import { closeHolds, closeRunOut, fromHeld } from '../reservations/holds';
 import { sequence, toChanges, type SeatChanges, type SeatMove } from '../seating/seat-changes';
 import { SeatEventsService } from '../seating/seat-events.service';
 import { SeasonInputDto } from './dto/season-input.dto';
@@ -28,8 +28,8 @@ type Tx = Prisma.TransactionClient;
 const ADMIN_ROLE = 'queuepass-admin';
 const isAdmin = (caller: Principal): boolean => caller.roles.includes(ADMIN_ROLE);
 
-/** Research R2: a Season's venue moved under a write; tried this many times in all. */
-const VENUE_ATTEMPTS = 3;
+/** Research R2: a Season's venue moved under a write; tried once more, two attempts in all. */
+const VENUE_ATTEMPTS = 2;
 
 /** A 400 naming every problem, each starting with its field path (R4). */
 /** R4: any write to a cancelled Season. */
@@ -257,8 +257,11 @@ export class SeasonsService {
       });
       const freed = new Map<string, SeatMove[]>();
       for (const { event } of events) {
+        // As every locked path does first (spec 015 R3): reservations whose 5 minutes ran out end
+        // at their expiry, and their seats are freed too.
+        const ranOut = await closeRunOut(tx, event.id);
         const held = await closeHolds(tx, event.id, (h) => holdReservations.has(h.reservationId));
-        freed.set(event.id, fromHeld(held));
+        freed.set(event.id, [...fromHeld(ranOut), ...fromHeld(held)]);
       }
       if (holds.length > 0) {
         const ids = holds.map((h) => h.id);
@@ -344,10 +347,11 @@ export class SeasonsService {
       } catch (err) {
         if (!(err instanceof SeasonVenueMoved)) throw err;
         if (attempt >= VENUE_ATTEMPTS) {
+          // R2: moved again during the retry, a race with other saves, refused as `updateEvent`
+          // refuses its own (a 409, never a 500), with no event details: no event is at fault.
           throw conflict(
             'SCHEDULING_CONFLICT',
             'This Season was moved to another venue while it was being saved. Reload it and try again.',
-            { bufferMinutes: SCHEDULING_BUFFER_MINUTES, conflictingEvent: null },
           );
         }
       }
@@ -480,7 +484,7 @@ export class SeasonsService {
     const s = await tx.season.findUniqueOrThrow({
       where: { id },
       include: {
-        events: { select: { eventId: true } },
+        events: { select: { eventId: true, event: { select: { startsAt: true } } } },
         prices: { include: { level: { select: { rank: true } } } },
       },
     });
@@ -500,7 +504,14 @@ export class SeasonsService {
       salesEndAt: s.salesEndAt,
       singleSalesOpenAt: s.singleSalesOpenAt,
       maxPassesPerCustomer: s.maxPassesPerCustomer,
-      eventIds: s.events.map((e) => e.eventId),
+      // As the response lists them (`toSeason`): by start, then id.
+      eventIds: [...s.events]
+        .sort(
+          (a, b) =>
+            a.event.startsAt.getTime() - b.event.startsAt.getTime() ||
+            a.eventId.localeCompare(b.eventId),
+        )
+        .map((e) => e.eventId),
       prices: prices.map((p) =>
         p.levelId !== null
           ? { levelId: p.levelId, price: p.price.toFixed(2) }

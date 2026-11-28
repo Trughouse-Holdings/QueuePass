@@ -224,6 +224,17 @@ describe('Seasons: create, read, publish (041 US1)', () => {
       expect(fieldsOf(res.body)).toEqual(['prices.1', 'prices.2', 'prices.3']);
     });
 
+    it('refuses a price over 99,999,999.99 by its entry, not a 500 (review: Decimal(10,2))', async () => {
+      const res = await create({
+        prices: [
+          { levelId: layout.levels.Lower, price: '100000000.00' },
+          { levelId: layout.levels.Upper, price: '99999999.99' },
+        ],
+      }).expect(400);
+      expect(res.body.error.details.fields).toEqual([expect.stringMatching(/^prices\.0\.price /)]);
+      expect(await ctx.prisma.season.count()).toBe(0);
+    });
+
     it('refuses an event already in another Season (409 EVENT_IN_SEASON, its index)', async () => {
       const first = await create({ name: 'First' }).expect(201);
       const res = await create({ name: 'Second', eventIds: [games[2], games[1]] }).expect(409);

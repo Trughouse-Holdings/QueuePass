@@ -94,7 +94,10 @@ checked against), the Season row `FOR UPDATE` (not on create), then every event 
 new, `FOR UPDATE` in id order. An update locks both the Season's stored venue and the requested
 one (`lockVenueShared` takes several, in id order); the stored venue is read before any lock, so the
 service re-reads it under the Season lock and, if it changed, rolls back and retries once, as
-`updateEvent` does with `VenueMoved` (review S8). `042`'s pass hold and pass confirm take the Season
+`updateEvent` does with `VenueMoved` (review S8). If the venue moved again during that retry (a
+race with other saves), the write is refused `409 SCHEDULING_CONFLICT` ("moved to another venue …
+reload it and try again", no `details`), the code `updateEvent` gives the same race; never a 500
+(implementation review). `042`'s pass hold and pass confirm take the Season
 row `FOR SHARE`,
 then the Season's events in id order. Event writes never lock a Season: they read `SeasonEvent`,
 `Season` and `SeasonPrice` under their own event lock.

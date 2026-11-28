@@ -295,3 +295,65 @@ describe('Seasons: update and delete (041 US2)', () => {
     expect(fieldsOf(res.body)).toEqual(['eventIds.3']);
   });
 });
+
+/**
+ * Research R2 (review S8, review of the implementation): an update reads the Season's venue before
+ * its transaction; when another update moves the Season meanwhile, the first sees the moved row
+ * under the Season lock, rolls back, and tries once more with the venue as it now is.
+ */
+describe('Seasons: an update racing a venue move (R2)', () => {
+  let ctx: TestContext;
+  beforeAll(async () => {
+    ctx = await createTestApp();
+  });
+  afterAll(async () => {
+    await ctx.app.close();
+  });
+  beforeEach(async () => {
+    await resetDb(ctx.prisma);
+  });
+
+  it('retries the update that read the old venue, and both succeed', async () => {
+    const a = await venue(ctx, 'Venue A');
+    const b = await venue(ctx, 'Venue B');
+    const body = (locationId: string, name: string) => ({
+      name,
+      locationId,
+      layoutId: null,
+      salesEndAt: atInstant(Date.now() + 86_400_000),
+      eventIds: [],
+      prices: [],
+    });
+    const draft = await asAdmin(ctx).post('/seasons').send(body(a, 'Draft')).expect(201);
+    const id = draft.body.id as string;
+
+    // Hold the Season row so both updates read venue A and then queue for its lock.
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    const holder = ctx.prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "Season" WHERE "id" = ${id}::uuid FOR UPDATE`;
+        await held;
+      },
+      { timeout: 20_000 },
+    );
+    await new Promise((r) => setTimeout(r, 100));
+    const move = asAdmin(ctx).put(`/seasons/${id}`).send(body(b, 'Moved'));
+    const moving = move.then((res) => res);
+    await new Promise((r) => setTimeout(r, 300));
+    const stale = asAdmin(ctx)
+      .put(`/seasons/${id}`)
+      .send(body(a, 'Renamed at A'))
+      .then((r) => r);
+    await new Promise((r) => setTimeout(r, 300));
+    release();
+    await holder;
+
+    const [moved, renamed] = await Promise.all([moving, stale]);
+    expect(moved.status).toBe(200);
+    expect(renamed.status).toBe(200);
+    const row = await ctx.prisma.season.findUniqueOrThrow({ where: { id } });
+    // The stale update ran last, on its retry, and its whole Season stands.
+    expect(row).toMatchObject({ name: 'Renamed at A', locationId: a });
+  });
+});
