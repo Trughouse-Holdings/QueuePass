@@ -11,8 +11,9 @@ use admin_rust_core::api::client::{ApiError, error_from};
 use admin_rust_core::api::types::SeasonStatus;
 use admin_rust_core::forms::season::{
     GENERAL_ADMISSION, PreviewEvent, PreviewLevel, SPORTS, SeasonDraft, SeasonPreviewContext,
-    by_name, field_order, first_error_key, focus_id_for, level_price_message, place_season_errors,
-    preview_season, price_keys, same_draft, season_msg, tier_key, to_season_input,
+    by_name, field_order, first_error_key, focus_id_for, level_price_message, missing_required,
+    place_season_errors, preview_season, price_keys, same_draft, season_msg, tier_key,
+    to_season_input,
 };
 use admin_rust_core::pages::seasons::{
     PickOptions, PickerEvent, SeasonClock, SeasonRef, pickable_events, season_status_text,
@@ -840,6 +841,66 @@ fn keeps_a_refusal_that_names_no_field_as_a_general_message() {
         None,
     );
     assert!(empty.is_empty_fields() && empty.unmapped.is_empty());
+}
+
+// ---------------------------------------------------------------- missingRequired (#189)
+
+fn sorted(set: impl IntoIterator<Item = String>) -> Vec<String> {
+    let mut v: Vec<String> = set.into_iter().collect();
+    v.sort();
+    v
+}
+
+#[test]
+fn names_the_required_fields_with_no_value_yet_name_venue_layout_pass_sales_end() {
+    let empty = SeasonDraft {
+        name: " ".into(),
+        location_id: String::new(),
+        layout: String::new(),
+        sales_end_at: String::new(),
+        ..draft()
+    };
+    assert_eq!(
+        sorted(missing_required(&empty, &ctx())),
+        ["layoutId", "locationId", "name", "salesEndAt"]
+    );
+    assert!(missing_required(&draft(), &ctx()).is_empty());
+}
+
+#[test]
+fn leaves_out_what_is_a_message_not_a_missing_value_both_or_neither_limits_times() {
+    let d = SeasonDraft {
+        team: String::new(),
+        max_passes_per_customer: "11".into(),
+        sales_end_at: "2026-12-10T19:30".into(),
+        ..draft()
+    };
+    assert!(missing_required(&d, &ctx()).is_empty());
+}
+
+#[test]
+fn asks_for_every_level_price_only_when_the_season_must_stay_sellable() {
+    let one = SeasonDraft {
+        prices: prices(&[(LOWER, "100.00"), (UPPER, " ")]),
+        ..draft()
+    };
+    assert!(missing_required(&one, &ctx()).is_empty());
+    assert_eq!(
+        sorted(missing_required(&one, &complete())),
+        [format!("prices.{UPPER}")]
+    );
+    let ga = SeasonDraft {
+        layout: GENERAL_ADMISSION.into(),
+        prices: BTreeMap::new(),
+        ..draft()
+    };
+    let ga_ctx = SeasonPreviewContext {
+        levels: vec![],
+        tier_names: vec!["General".into()],
+        complete: true,
+        ..ctx()
+    };
+    assert!(missing_required(&ga, &ga_ctx).is_empty());
 }
 
 // ---------------------------------------------------------------- sameDraft, byName (review)

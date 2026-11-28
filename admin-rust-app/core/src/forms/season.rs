@@ -304,6 +304,38 @@ pub fn preview_season(draft: &SeasonDraft, ctx: &SeasonPreviewContext) -> FieldM
     errors
 }
 
+/// #189 (FR-017; `missingRequired`): the required fields with no value yet, outlined in red at
+/// once with a "Required" for the eye, before any message: the name, the venue, the layout
+/// choice (a layout or General admission), the pass sales end, and, for a Season that must stay
+/// sellable, each level's price. A broken rule (sport without team, a limit out of range, a time
+/// too late) is a message on Save, not a missing value.
+pub fn missing_required(
+    draft: &SeasonDraft,
+    ctx: &SeasonPreviewContext,
+) -> std::collections::BTreeSet<String> {
+    let mut missing = std::collections::BTreeSet::new();
+    if draft.name.trim().is_empty() {
+        missing.insert("name".to_string());
+    }
+    if draft.location_id.is_empty() {
+        missing.insert("locationId".to_string());
+    }
+    if draft.layout.is_empty() {
+        missing.insert("layoutId".to_string());
+    }
+    if draft.sales_end_at.is_empty() {
+        missing.insert("salesEndAt".to_string());
+    }
+    if ctx.complete && !draft.layout.is_empty() && draft.layout != GENERAL_ADMISSION {
+        for key in price_keys(draft, ctx) {
+            if draft.prices.get(&key).is_none_or(|p| p.trim().is_empty()) {
+                missing.insert(format!("prices.{key}"));
+            }
+        }
+    }
+    missing
+}
+
 /// Review 041 (`sameDraft`): whether the form still shows the saved Season, so Put on sale
 /// publishes what is on screen. Prices compare by their filled boxes, in any order; blanks are
 /// no price.

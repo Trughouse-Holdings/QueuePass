@@ -16,8 +16,8 @@ use admin_rust_core::{
         layouts::as_api_error,
         season::{
             GENERAL_ADMISSION, PreviewLevel, SPORTS, SeasonDraft, SeasonPreviewContext,
-            first_error_key, focus_id_for, place_season_errors, preview_season, price_keys,
-            same_draft, to_season_input,
+            first_error_key, focus_id_for, missing_required, place_season_errors, preview_season,
+            price_keys, same_draft, to_season_input,
         },
     },
     pages::{
@@ -283,6 +283,18 @@ fn SeasonPage(id: Option<String>) -> impl IntoView {
         }
     });
     let previews = Memo::new(move |_| derived.with(|x| draft.with(|d| preview_season(d, &x.ctx))));
+    // #189: a required field with no value yet is outlined in red at once; its message waits.
+    // Nothing is outlined on a cancelled Season.
+    let missing = Memo::new(move |_| {
+        if season.with(|s| {
+            s.as_ref()
+                .is_some_and(|s| s.status == SeasonStatus::Cancelled)
+        }) {
+            BTreeSet::new()
+        } else {
+            derived.with(|x| draft.with(|d| missing_required(d, &x.ctx)))
+        }
+    });
     let placed = Memo::new(move |_| {
         let shown: Vec<String> =
             derived.with(|x| x.keys.iter().map(|k| format!("prices.{k}")).collect());
@@ -546,6 +558,7 @@ fn SeasonPage(id: Option<String>) -> impl IntoView {
         dirty,
         deleting,
         delete_error,
+        missing,
     };
 
     move || match shown.get() {
@@ -587,6 +600,7 @@ struct Form {
     dirty: Memo<bool>,
     deleting: RwSignal<bool>,
     delete_error: RwSignal<Option<String>>,
+    missing: Memo<BTreeSet<String>>,
 }
 
 /// `aria-invalid` and `aria-describedby` on a control while messages are beside it.
@@ -631,7 +645,12 @@ impl Form {
             dirty,
             deleting,
             delete_error,
+            missing,
         } = self;
+        // #189: `input--needed` on a required control with no value yet (its only class).
+        let needed = move |key: &'static str| {
+            move || missing.with(|m| m.contains(key)).then_some("input--needed")
+        };
         let read_only = move || cancelled.get();
         let status = Memo::new(move |_| season.with(|s| s.as_ref().map(|s| s.status)));
         let title = move || {
@@ -800,6 +819,7 @@ impl Form {
                             let invalid_field = field.clone();
                             let described_field = field.clone();
                             let hint_field = field.clone();
+                            let needed_field = field.clone();
                             let described = test_id.clone();
                             let hint_id = test_id.clone();
                             let value_key = key.clone();
@@ -809,6 +829,11 @@ impl Form {
                                     <label for=input_id.clone()>{label}</label>
                                     <input
                                         id=input_id
+                                        class=move || {
+                                            missing
+                                                .with(|m| m.contains(&needed_field))
+                                                .then_some("input--needed")
+                                        }
                                         inputmode="decimal"
                                         placeholder="0.00"
                                         prop:value=move || {
@@ -868,6 +893,7 @@ impl Form {
                                 <label for="name">"Season name"</label>
                                 <input
                                     id="name"
+                                    class=needed("name")
                                     prop:value=value(|d| d.name.clone())
                                     placeholder="Louisville Cardinals Basketball 2026–27"
                                     disabled=read_only
@@ -936,6 +962,7 @@ impl Form {
                                 <label for="locationId">"Venue"</label>
                                 <select
                                     id="locationId"
+                                    class=needed("locationId")
                                     prop:value=location
                                     disabled=move || read_only() || passes_locked.get()
                                     on:change=move |ev| {
@@ -975,6 +1002,7 @@ impl Form {
                                 <label for="layoutId">"Layout"</label>
                                 <select
                                     id="layoutId"
+                                    class=needed("layoutId")
                                     prop:value=layout
                                     disabled=move || {
                                         read_only() || passes_locked.get() || location().is_empty()
@@ -1035,6 +1063,7 @@ impl Form {
                                     })
                                     disabled=Signal::derive(read_only)
                                     invalid=sales_end_invalid
+                                    needed=Signal::derive(move || missing.with(|m| m.contains("salesEndAt")))
                                 />
                                 <span class="field__hint">
                                     "In the venue's time zone; no later than the first event's start."
@@ -1051,6 +1080,7 @@ impl Form {
                                     })
                                     disabled=Signal::derive(read_only)
                                     invalid=presale_invalid
+                                    needed=Signal::derive(|| false)
                                 />
                                 <span class="field__hint">
                                     "Until then the events sell only passes. Leave blank for no presale."
@@ -1164,6 +1194,8 @@ fn DateTimeFields(
     on_change: Callback<String>,
     disabled: Signal<bool>,
     invalid: Signal<bool>,
+    /// #189: both controls outlined as a required field with no value yet.
+    needed: Signal<bool>,
 ) -> impl IntoView {
     let first = split_local_date_time(&value.get_untracked());
     let date = RwSignal::new(first.date);
@@ -1200,6 +1232,7 @@ fn DateTimeFields(
                     prop:value=move || date.get()
                     on:input=move |ev| set(event_target_value(&ev), time.get_untracked())
                     disabled=move || disabled.get()
+                    class=move || needed.get().then_some("input--needed")
                     aria-invalid=move || invalid.get().then_some("true")
                     aria-describedby=move || invalid.get().then(|| described.clone())
                 />
@@ -1213,6 +1246,7 @@ fn DateTimeFields(
                     prop:value=move || time.get()
                     on:input=move |ev| set(date.get_untracked(), event_target_value(&ev))
                     disabled=move || disabled.get()
+                    class=move || needed.get().then_some("input--needed")
                     aria-invalid=move || invalid.get().then_some("true")
                     aria-describedby=move || invalid.get().then(|| described_time.clone())
                 />
