@@ -194,6 +194,46 @@ describe('New season (041 US1, T019)', () => {
     expect(screen.getByText('Spring Hoops is on sale.')).toBeInTheDocument();
   });
 
+  it('keeps Put on sale off while the form has unsaved changes (review)', async () => {
+    const api = stubApi({ ...BASE, [`GET /seasons/${SEASON_ID}`]: json(season()) });
+    const user = userEvent.setup();
+    renderAt(`/seasons/${SEASON_ID}`);
+    const publish = await screen.findByRole('button', { name: 'Put on sale' });
+    expect(publish).toBeEnabled();
+    await user.type(screen.getByLabelText('Season name'), ' 2027');
+    expect(publish).toBeDisabled();
+    expect(screen.getByTestId('publish-hint')).toHaveTextContent('Save your changes first.');
+    expect(api.count('POST', `/seasons/${SEASON_ID}/publish`)).toBe(0);
+  });
+
+  it('checks a draft before putting it on sale, and sends nothing with fewer than 2 events', async () => {
+    const one = season({ events: season().events.slice(0, 1) });
+    const api = stubApi({ ...BASE, [`GET /seasons/${SEASON_ID}`]: json(one) });
+    const user = userEvent.setup();
+    renderAt(`/seasons/${SEASON_ID}`);
+    await waitFor(() => expect(screen.getByLabelText('Lower pass price')).toHaveValue('100.00'));
+    await user.click(screen.getByRole('button', { name: 'Put on sale' }));
+    expect(await screen.findByTestId('eventIds-error')).toHaveTextContent(
+      'Choose at least 2 events to put the season on sale.',
+    );
+    expect(api.count('POST', `/seasons/${SEASON_ID}/publish`)).toBe(0);
+  });
+
+  it('asks only for the chosen venue’s events (review)', async () => {
+    const api = stubApi(BASE);
+    const user = userEvent.setup();
+    renderAt('/seasons/new');
+    await chooseVenueAndLayout(user, 'Basketball');
+    await waitFor(() =>
+      expect(
+        api.calls.some(
+          (c) =>
+            c.path === '/events' && new URLSearchParams(c.search).get('locationId') === VENUE.id,
+        ),
+      ).toBe(true),
+    );
+  });
+
   it('places a publish refusal beside the level it names', async () => {
     stubApi({
       ...BASE,
@@ -244,8 +284,12 @@ describe('Editing a season (041 US2, T030)', () => {
     await waitFor(() =>
       expect(screen.getByRole('checkbox', { name: /Cardinals vs. Miami/ })).toBeDisabled(),
     );
-    expect(screen.getByRole('checkbox', { name: /Cardinals vs. Syracuse/ })).toBeDisabled();
-    expect(screen.getByTestId('events-locked')).toHaveTextContent('Passes have been sold');
+    expect(await screen.findByRole('checkbox', { name: /Cardinals vs. Syracuse/ })).toBeDisabled();
+    // In the Events group, beside the locked boxes, and by the venue and layout (review).
+    expect(
+      within(screen.getByRole('group', { name: 'Events' })).getByTestId('events-locked'),
+    ).toHaveTextContent('Passes have been sold');
+    expect(screen.getByTestId('venue-locked')).toHaveTextContent('Passes have been sold');
     expect(screen.getByLabelText('Venue')).toBeDisabled();
     expect(screen.getByLabelText('Layout')).toBeDisabled();
     expect(await screen.findByLabelText('Lower pass price')).toBeEnabled();

@@ -31,12 +31,14 @@ import { DateTimeFields } from './DateTimeFields';
 import {
   GENERAL_ADMISSION,
   SPORTS,
+  byName,
   firstErrorKey,
   focusIdFor,
   pickableEvents,
   placeSeasonErrors,
   previewSeason,
   priceKeys,
+  sameDraft,
   seasonStatusText,
   tierKey,
   toSeasonInput,
@@ -118,14 +120,12 @@ function SeasonPage({ id }: { id: string | undefined }): React.ReactElement {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
+  const [publishChecks, setPublishChecks] = useState<Map<string, string> | null>(null);
 
   useEffect(() => {
     listLocations()
       .then(setVenues)
       .catch(() => setVenues([]));
-    listEvents()
-      .then(setEvents)
-      .catch(() => setEvents([]));
     if (!id) return;
     getSeason(id)
       .then((s) => {
@@ -134,6 +134,19 @@ function SeasonPage({ id }: { id: string | undefined }): React.ReactElement {
       })
       .catch((err: Error) => setLoadError(err.message));
   }, [id]);
+
+  // The picker asks for the chosen venue's events only (review).
+  useEffect(() => {
+    setEvents([]);
+    if (!draft.locationId) return;
+    let cancelled = false;
+    listEvents({ locationId: draft.locationId })
+      .then((e) => !cancelled && setEvents(e))
+      .catch(() => !cancelled && setEvents([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.locationId]);
 
   useEffect(() => {
     setLayouts([]);
@@ -222,7 +235,7 @@ function SeasonPage({ id }: { id: string | undefined }): React.ReactElement {
     for (const n of [...common, ...priced]) {
       if (!out.some((o) => tierKey(o) === tierKey(n))) out.push(n);
     }
-    return out.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    return out.sort(byName);
   }, [draft.layout, chosen, tiersOf, season]);
 
   const ctx = {
@@ -234,9 +247,20 @@ function SeasonPage({ id }: { id: string | undefined }): React.ReactElement {
   };
   const keys = priceKeys(draft, ctx);
   const previews = previewSeason(draft, ctx);
-  const placed = placeSeasonErrors(error, sent);
+  const placed = placeSeasonErrors(
+    error,
+    sent,
+    keys.map((k) => `prices.${k}`),
+  );
+  // Review 041: Put on sale publishes the saved Season, so only while the form still shows it.
+  const dirty = season !== null && !sameDraft(draftOf(season), draft);
   const hintFor = (key: string): string[] =>
-    placed.fields.get(key) ?? (submitted && previews.has(key) ? [previews.get(key)!] : []);
+    placed.fields.get(key) ??
+    (publishChecks?.has(key)
+      ? [publishChecks.get(key)!]
+      : submitted && previews.has(key)
+        ? [previews.get(key)!]
+        : []);
   const invalid = (key: string, testId = `${key}-error`) =>
     hintFor(key).length > 0 ? { 'aria-invalid': true as const, 'aria-describedby': testId } : {};
   const hint = (testId: string, messages: string[]) =>
@@ -249,6 +273,7 @@ function SeasonPage({ id }: { id: string | undefined }): React.ReactElement {
   const change = (patch: Partial<SeasonDraft>) => {
     setDraft((d) => ({ ...d, ...patch }));
     setError(null);
+    setPublishChecks(null);
     setSaved(null);
   };
 
@@ -299,7 +324,18 @@ function SeasonPage({ id }: { id: string | undefined }): React.ReactElement {
   };
 
   const publish = async () => {
-    if (!season || busy) return;
+    if (!season || busy || dirty) return;
+    // FR-010: the publish rules previewed first (at least 2 events, every level priced, the sales
+    // end ahead); nothing is sent while one fails.
+    const checks = previewSeason(draft, { ...ctx, complete: true, publishing: true });
+    if (checks.size > 0) {
+      setError(null);
+      setSaved(null);
+      setPublishChecks(checks);
+      setFocusKey({ key: firstErrorKey(checks, keys)! });
+      return;
+    }
+    setPublishChecks(null);
     const mapping = { eventIds: season.events.map((e) => e.id), priceKeys: savedPriceKeys(season) };
     setSent(mapping);
     setError(null);
@@ -399,10 +435,16 @@ function SeasonPage({ id }: { id: string | undefined }): React.ReactElement {
                 type="button"
                 className="btn btn--primary"
                 onClick={() => void publish()}
-                disabled={busy}
+                disabled={busy || dirty}
+                {...(dirty ? { 'aria-describedby': 'publish-hint' } : {})}
               >
                 Put on sale
               </button>
+            )}
+            {season.status === 'DRAFT' && dirty && (
+              <span className="field__hint" id="publish-hint" data-testid="publish-hint">
+                Save your changes first.
+              </span>
             )}
             {season.status === 'ON_SALE' && (
               <button type="button" className="btn" onClick={() => void cancel()} disabled={busy}>
@@ -530,7 +572,7 @@ function SeasonPage({ id }: { id: string | undefined }): React.ReactElement {
               {hint('layoutId-error', hintFor('layoutId'))}
             </div>
             {passesLocked && !readOnly && (
-              <span className="field__hint" data-testid="events-locked">
+              <span className="field__hint" data-testid="venue-locked">
                 {SEASON_LOCK.passes}
               </span>
             )}
@@ -584,6 +626,12 @@ function SeasonPage({ id }: { id: string | undefined }): React.ReactElement {
 
           <fieldset className="field" id="eventIds" tabIndex={-1} {...invalid('eventIds')}>
             <legend>Events</legend>
+            {/* Review 041: the reason beside the locked boxes too (FR-017). */}
+            {passesLocked && !readOnly && (
+              <span className="field__hint" data-testid="events-locked">
+                {SEASON_LOCK.passes}
+              </span>
+            )}
             {!draft.locationId || !draft.layout ? (
               <p className="note">Choose a venue and a layout to see its upcoming events.</p>
             ) : offered.length === 0 ? (

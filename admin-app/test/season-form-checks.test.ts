@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { ApiError } from '../src/api/client';
 import {
   SEASON_MSG,
+  byName,
+  sameDraft,
   fieldOrder,
   firstErrorKey,
   pickableEvents,
@@ -111,6 +113,20 @@ describe('previewSeason', () => {
   it('says a skipped local time is skipped', () => {
     const errors = previewSeason(draft({ salesEndAt: '2026-03-08T02:30' }), ctx({ events: [] }));
     expect(errors.get('salesEndAt')).toMatch(/2:30 AM/);
+  });
+
+  it('refuses a price over 99,999,999.99 (review)', () => {
+    const errors = previewSeason(
+      draft({ prices: { [LOWER]: '100000000', [UPPER]: '99999999.99' } }),
+      ctx(),
+    );
+    expect(errors.get(`prices.${LOWER}`)).toBe(SEASON_MSG.price);
+    expect(errors.has(`prices.${UPPER}`)).toBe(false);
+  });
+
+  it('says an unreadable single-tickets time is that field’s own problem (review)', () => {
+    const errors = previewSeason(draft({ singleSalesOpenAt: '2026-13-45T99:99' }), ctx());
+    expect(errors.get('singleSalesOpenAt')).toBe(SEASON_MSG.presaleTime);
   });
 
   it('refuses a malformed price, keyed by its level', () => {
@@ -247,6 +263,32 @@ describe('placeSeasonErrors', () => {
     expect(placed.unmapped).toEqual(['something else entirely']);
   });
 
+  it('places a nested price refusal by its entry, and a path no control shows as general (review)', () => {
+    const placed = placeSeasonErrors(
+      refusal(400, {
+        code: 'VALIDATION_FAILED',
+        message: 'Request validation failed.',
+        details: {
+          fields: [
+            'prices.0.price must be a non-negative decimal string up to 99999999.99',
+            'prices.7.price must be a decimal string',
+            'prices.cccccccc-cccc-4ccc-8ccc-cccccccccccc Give Gone a price.',
+          ],
+        },
+      }),
+      sent,
+      [`prices.${UPPER}`, 'prices.tier:vip'],
+    );
+    expect(placed.fields.get(`prices.${UPPER}`)).toEqual([
+      'price must be a non-negative decimal string up to 99999999.99',
+    ]);
+    expect(placed.fields.size).toBe(1);
+    expect(placed.unmapped).toEqual([
+      'prices.7.price must be a decimal string',
+      'prices.cccccccc-cccc-4ccc-8ccc-cccccccccccc Give Gone a price.',
+    ]);
+  });
+
   it('places a 409 naming its field: an event in another Season, passes sold, a time', () => {
     const inSeason = placeSeasonErrors(
       refusal(409, {
@@ -337,6 +379,34 @@ describe('pickableEvents (R11)', () => {
       keep: ['old'],
     });
     expect(picked.map((e) => e.id).sort()).toEqual(['ga', 'old']);
+  });
+});
+
+describe('sameDraft (review)', () => {
+  it('is the same Season with events and filled prices in any order, blanks ignored', () => {
+    const a = draft();
+    expect(
+      sameDraft(a, {
+        ...a,
+        eventIds: ['e2', 'e1'],
+        prices: { [UPPER]: '60.00', [LOWER]: '100.00', x: ' ' },
+      }),
+    ).toBe(true);
+    expect(sameDraft(a, { ...a, name: 'Other' })).toBe(false);
+    expect(sameDraft(a, { ...a, prices: { [LOWER]: '100.00' } })).toBe(false);
+    expect(sameDraft(a, { ...a, eventIds: ['e1'] })).toBe(false);
+  });
+});
+
+describe('byName (review)', () => {
+  it('orders names by their lower-case characters, as the Rust app does', () => {
+    expect(['vip', 'General', 'Éclair', 'balcony', 'general b'].sort(byName)).toEqual([
+      'balcony',
+      'General',
+      'general b',
+      'vip',
+      'Éclair',
+    ]);
   });
 });
 

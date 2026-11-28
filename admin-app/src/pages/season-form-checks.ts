@@ -68,9 +68,10 @@ export const SEASON_MSG = {
   sport: 'Choose the sport, or leave the team blank.',
   teamLength: 'team must be between 1 and 100 characters',
   salesEnd: 'Enter when pass sales end.',
+  presaleTime: 'Enter when single tickets go on sale, or leave both its date and time blank.',
   presale: 'Single tickets must go on sale no later than the pass sales end.',
   passes: 'Passes per customer must be a whole number from 1 to 10, or blank for no limit.',
-  price: 'Enter a price such as 640.00.',
+  price: 'Enter a price such as 640.00, at most 99999999.99.',
   twoEvents: 'Choose at least 2 events to put the season on sale.',
   oneName: 'Price at least one ticket type.',
 } as const;
@@ -82,7 +83,15 @@ export const levelPriceMessage = (level: string): string => `Give ${level} a pri
 export const salesEndMessage = (eventName: string, start: string, zone: UsTimeZone): string =>
   `Pass sales must end by the start of the first event, ${eventName} (${formatEventTime(start, zone)}).`;
 
-const PRICE = /^\d+(\.\d{1,2})?$/;
+/** The contract's `SeasonPriceInput.price`: at most 8 whole digits, fitting decimal(10,2). */
+const PRICE = /^\d{1,8}(\.\d{1,2})?$/;
+
+/** Ticket type names in one order in both Admin apps: their lower-case characters, compared. */
+export const byName = (a: string, b: string): number => {
+  const x = a.toLowerCase();
+  const y = b.toLowerCase();
+  return x < y ? -1 : x > y ? 1 : 0;
+};
 
 /** A general-admission price key for a ticket type name. */
 export const tierKey = (name: string): string => `tier:${name.trim().toLowerCase()}`;
@@ -109,14 +118,19 @@ function instantOf(local: string, zone: UsTimeZone): Date | null {
   return null;
 }
 
-/** A time field's own problem: missing, or a local time the clocks skip. */
-function timeProblem(local: string, zone: UsTimeZone, missing: string | null): string | null {
+/** A time field's own problem: missing, unreadable, or a local time the clocks skip. */
+function timeProblem(
+  local: string,
+  zone: UsTimeZone,
+  missing: string | null,
+  unreadable: string,
+): string | null {
   if (!local) return missing;
   try {
     const r = resolveLocal(local, zone);
     if (r.kind === 'skipped') return skippedTimeMessage(local, zone, r.skippedFrom, r.skippedTo);
   } catch {
-    return missing ?? SEASON_MSG.salesEnd;
+    return unreadable;
   }
   return null;
 }
@@ -135,9 +149,19 @@ export function previewSeason(draft: SeasonDraft, ctx: SeasonPreviewContext): Ma
   else if (draft.sport && !team) errors.set('team', SEASON_MSG.team);
   else if (!draft.sport && team) errors.set('sport', SEASON_MSG.sport);
 
-  const salesEndProblem = timeProblem(draft.salesEndAt, ctx.zone, SEASON_MSG.salesEnd);
+  const salesEndProblem = timeProblem(
+    draft.salesEndAt,
+    ctx.zone,
+    SEASON_MSG.salesEnd,
+    SEASON_MSG.salesEnd,
+  );
   if (salesEndProblem) errors.set('salesEndAt', salesEndProblem);
-  const presaleProblem = timeProblem(draft.singleSalesOpenAt, ctx.zone, null);
+  const presaleProblem = timeProblem(
+    draft.singleSalesOpenAt,
+    ctx.zone,
+    null,
+    SEASON_MSG.presaleTime,
+  );
   if (presaleProblem) errors.set('singleSalesOpenAt', presaleProblem);
   const salesEnd = instantOf(draft.salesEndAt, ctx.zone);
   const presale = instantOf(draft.singleSalesOpenAt, ctx.zone);
@@ -172,6 +196,31 @@ export function previewSeason(draft: SeasonDraft, ctx: SeasonPreviewContext): Ma
     errors.set('prices', SEASON_MSG.oneName);
   }
   return errors;
+}
+
+/**
+ * Review 041: whether the form still shows the saved Season, so Put on sale publishes what is on
+ * screen. Prices compare by their filled boxes, in any order; blanks are no price.
+ */
+export function sameDraft(a: SeasonDraft, b: SeasonDraft): boolean {
+  const filled = (d: SeasonDraft) =>
+    Object.entries(d.prices)
+      .filter(([, v]) => v.trim() !== '')
+      .map(([k, v]) => `${k}=${v.trim()}`)
+      .sort()
+      .join('|');
+  return (
+    a.name === b.name &&
+    a.locationId === b.locationId &&
+    a.layout === b.layout &&
+    a.sport === b.sport &&
+    a.team === b.team &&
+    a.salesEndAt === b.salesEndAt &&
+    a.singleSalesOpenAt === b.singleSalesOpenAt &&
+    a.maxPassesPerCustomer === b.maxPassesPerCustomer &&
+    [...a.eventIds].sort().join('|') === [...b.eventIds].sort().join('|') &&
+    filled(a) === filled(b)
+  );
 }
 
 /** The form's fields top to bottom, for focus on the first at fault (FR-017). */
@@ -264,6 +313,8 @@ export interface PlacedSeasonErrors {
 export function placeSeasonErrors(
   error: ApiError | null,
   sent: { eventIds: readonly string[]; priceKeys: readonly string[] },
+  /** The price boxes the form shows (`prices.<key>`); a price path naming none is general. */
+  shown?: readonly string[],
 ): PlacedSeasonErrors {
   const placed: PlacedSeasonErrors = { fields: new Map(), unmapped: [] };
   if (!error) return placed;
@@ -271,9 +322,11 @@ export function placeSeasonErrors(
     placed.fields.set(key, [...(placed.fields.get(key) ?? []), message]);
   const keyOf = (path: string): string | null => {
     if (/^eventIds(\.\d+)?$/.test(path)) return 'eventIds';
-    const index = /^prices\.(\d+)$/.exec(path);
-    if (index) return sent.priceKeys[Number(index[1])] ?? 'prices';
-    if (/^prices(\..+)?$/.test(path)) return path;
+    // A sent entry by its index, or one of its fields (`prices.<i>.price`, review).
+    const index = /^prices\.(\d+)(\.\w+)?$/.exec(path);
+    if (index) return sent.priceKeys[Number(index[1])] ?? null;
+    if (path === 'prices') return path;
+    if (/^prices\..+$/.test(path)) return !shown || shown.includes(path) ? path : null;
     if (
       /^(name|locationId|layoutId|sport|team|salesEndAt|singleSalesOpenAt|maxPassesPerCustomer)$/.test(
         path,
@@ -298,7 +351,12 @@ export function placeSeasonErrors(
       const head = space === -1 ? entry : entry.slice(0, space);
       const key = keyOf(head);
       if (!key) placed.unmapped.push(entry);
-      else add(key, head.includes('.') ? entry.slice(space + 1) : entry);
+      else {
+        // The entry's own field keeps its name ("price must be …"); an index or id goes.
+        const field = /^prices\.\d+\.(\w+)$/.exec(head)?.[1];
+        const rest = entry.slice(space + 1);
+        add(key, field ? `${field} ${rest}` : head.includes('.') ? rest : entry);
+      }
     }
     return placed;
   }
