@@ -2062,19 +2062,17 @@ export interface components {
             checkInDetailsRemovedAt: string | null;
             /**
              * @description Feature 041. The Season the event belongs to, cancelled Seasons included; `null` if
-             *     none. Always sent once 041 is implemented; not listed as required so this contract can
-             *     merge ahead of the implementation with the suite green. Clients treat a missing value
-             *     as `null`.
+             *     none. Required from 2.2.0 once implemented (feature 041's implementation).
              */
-            season?: components["schemas"]["SeasonRef"] | null;
+            season: components["schemas"]["SeasonRef"] | null;
             /**
              * Format: date-time
              * @description Feature 041. While the event's Season is on sale and its presale has not ended, when
              *     single tickets go on sale (until then only passes sell, `409 SEASON_PRESALE`); `null`
-             *     otherwise. Always sent once 041 is implemented; clients treat a missing value as
-             *     `null`.
+             *     otherwise, by the database's clock. Required from 2.2.0 once implemented (feature
+             *     041's implementation).
              */
-            singleSalesOpenAt?: string | null;
+            singleSalesOpenAt: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */

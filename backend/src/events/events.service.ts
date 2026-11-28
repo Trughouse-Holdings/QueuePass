@@ -35,6 +35,7 @@ import {
   writeSeating,
 } from '../seating/event-seating';
 import { SeatEventsService } from '../seating/seat-events.service';
+import { databaseNow } from '../seasons/season-view';
 import {
   holdsEvent,
   inSeason,
@@ -68,6 +69,10 @@ const EVENT_INCLUDE = {
   images: {
     select: { id: true, position: true, contentType: true, byteSize: true },
     orderBy: { position: 'asc' },
+  },
+  // Spec 041 (research R5): the Season it is in, for `season` and `singleSalesOpenAt`.
+  seasonEvent: {
+    select: { season: { select: { id: true, name: true, status: true, singleSalesOpenAt: true } } },
   },
 } satisfies Prisma.EventInclude;
 
@@ -111,8 +116,12 @@ class VenueMoved extends Error {}
  */
 export interface EventResponse extends Omit<
   EventWithLocation,
-  'basePrice' | 'keptCheckedInCount' | 'seatSeq'
+  'basePrice' | 'keptCheckedInCount' | 'seatSeq' | 'seasonEvent'
 > {
+  /** Spec 041 FR-019: the Season it belongs to, cancelled Seasons included. */
+  season: { id: string; name: string } | null;
+  /** Spec 041 FR-013 (R5): while its Season is on sale and the presale runs, its end. */
+  singleSalesOpenAt: Date | null;
   basePrice: string;
   /** Spec 038 FR-024, research R9: the highest on-sale level price; `null` for GA. */
   priceMax: string | null;
@@ -136,15 +145,28 @@ export class EventsService {
   /** Every event's response, their `priceMax` read in one statement (research R9). */
   private async respondAll(db: Db, events: EventWithLocation[]): Promise<EventResponse[]> {
     const maxes = await priceMaxes(db, events);
-    return events.map((e) => this.toResponse(e, maxes.get(e.id) ?? null));
+    // Spec 041 research R5, R16: the presale is read by the database's clock, as `salesClosed`.
+    const now = events.some((e) => e.seasonEvent?.season.singleSalesOpenAt)
+      ? await databaseNow(db)
+      : null;
+    return events.map((e) => this.toResponse(e, maxes.get(e.id) ?? null, now));
   }
 
-  private toResponse(event: EventWithLocation, priceMax: string | null): EventResponse {
+  private toResponse(
+    event: EventWithLocation,
+    priceMax: string | null,
+    now: Date | null,
+  ): EventResponse {
     // Spec 038 research R12: seatSeq is internal (a BigInt, which JSON can't carry); the venue map
     // and the stream send it as `seq`.
-    const { keptCheckedInCount: _kept, seatSeq: _seq, ...sent } = event;
+    const { keptCheckedInCount: _kept, seatSeq: _seq, seasonEvent, ...sent } = event;
+    const season = seasonEvent?.season ?? null;
+    const presale = season?.singleSalesOpenAt ?? null;
     return {
       ...sent,
+      season: season ? { id: season.id, name: season.name } : null,
+      singleSalesOpenAt:
+        season?.status === 'ON_SALE' && presale && now && presale > now ? presale : null,
       basePrice: event.basePrice.toFixed(2),
       priceMax,
       // Spec 025 research R6, R7: the same rule as the entry SQL's `entryOpens` fragment.

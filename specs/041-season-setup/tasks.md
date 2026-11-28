@@ -213,11 +213,11 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 **Goal**: FR-013 (041's part: the time and its display; 042 serves the refusal).
 **Independent test**: quickstart S10.
 
-- [ ] T038 [US4] *(test first)* `backend/test/integration/events.season-read.e2e-spec.ts`:
+- [X] T038 [US4] *(test first)* `backend/test/integration/events.season-read.e2e-spec.ts`:
   `getEvent` and `listEvents` (admin and customer tokens) give `season` and `singleSalesOpenAt` (the
   Season's time while `ON_SALE` and in the future; `null` for a draft, cancelled, past, or no
   presale); clearing the time shows `null` at once
-- [ ] T039 [US4] `backend/src/events/events.service.ts` event reads add `season` and
+- [X] T039 [US4] `backend/src/events/events.service.ts` event reads add `season` and
   `singleSalesOpenAt` (database clock, R5); make both required on `Event` in `openapi.yaml`
 - [ ] T040 [US4] Admin event page "Single tickets on sale from …" in the venue's zone, both apps
   (React test and Rust core test first)
