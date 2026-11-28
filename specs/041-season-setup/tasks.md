@@ -127,10 +127,10 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 - [X] T020 [US1] `admin-app/src/pages/Seasons.tsx`, `SeasonForm.tsx`; routes `/seasons`,
   `/seasons/new`, `/seasons/:id` and a Seasons nav link between Events and Reports in
   `admin-app/src/App.tsx` (R11); date-and-time controls as the event form (`036`)
-- [ ] T021 [P] [US1] *(test first)* `admin-rust-app/core/tests/season_form.rs`: T017's cases
-- [ ] T022 [US1] `admin-rust-app/core/src/forms/season.rs`, `core/src/pages/seasons.rs` (status
+- [X] T021 [P] [US1] *(test first)* `admin-rust-app/core/tests/season_form.rs`: T017's cases
+- [X] T022 [US1] `admin-rust-app/core/src/forms/season.rs`, `core/src/pages/seasons.rs` (status
   text, picker filter), the Season ops in `core/src/api/client.rs` (`pub mod ops`) to pass T021
-- [ ] T023 [US1] `admin-rust-app/app/src/pages/seasons.rs`, `season_form.rs`, routes in
+- [X] T023 [US1] `admin-rust-app/app/src/pages/seasons.rs`, `season_form.rs`, routes in
   `app/src/routes.rs`, nav in `app/src/shell.rs`, with the React markup and class names (R12)
 
 **Checkpoint**: S1–S4 pass in both Admin apps.
@@ -180,7 +180,7 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
   and seating controls locked with that reason
 - [X] T031 [US2] `admin-app/src/pages/SeasonForm.tsx` actions and locks; `EventForm.tsx` and the
   event page read `event.season` (FR-019)
-- [ ] T032 [US2] Rust Admin app: the same in `core/src/forms/season.rs`, `core/src/forms/event.rs`
+- [X] T032 [US2] Rust Admin app: the same in `core/src/forms/season.rs`, `core/src/forms/event.rs`
   (with `core/tests` cases first) and the views
 
 **Checkpoint**: S5–S8 pass in both Admin apps.
@@ -203,7 +203,7 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
   attendee list's wrapping Pass column) still fit letter landscape (R8)
 - [X] T036 [US3] `admin-app/src/export/sales-rows.ts`, `attendee-rows.ts`, `pages/Reports.tsx` (Pass
   tickets column and the total row's pass figures), `pages/Attendees.tsx` (Pass column)
-- [ ] T037 [US3] Rust Admin app: `core/src/export/rows.rs` and `core/src/pages/attendees_reports.rs`
+- [X] T037 [US3] Rust Admin app: `core/src/export/rows.rs` and `core/src/pages/attendees_reports.rs`
   (tests first in `core/tests`, including the Rust PDF fit test for both tables), the report and
   attendee views
 
@@ -220,7 +220,16 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
   presale); clearing the time shows `null` at once
 - [X] T039 [US4] `backend/src/events/events.service.ts` event reads add `season` and
   `singleSalesOpenAt` (database clock, R5); make both required on `Event` in `openapi.yaml`
-- [ ] T040 [US4] Admin event page "Single tickets on sale from …" in the venue's zone, both apps
+  - **Open gap (implementation, 2026-11-28)**: making `Order.seasonPass` (T034) and
+    `Event.season`/`singleSalesOpenAt` (T039) and the report's pass fields required breaks about
+    30 tests of `customer-rust-app/core` whose JSON fixtures (`core/tests/fixtures/api/*.json`,
+    `generate.mts`, inline JSON in `core/tests/buy.rs` and others) predate them: serde refuses a
+    missing required field. The app itself reads what the Backend sends, which always has them.
+    `customer-rust-app/` is 042's (ground rules), so this implementation does not edit it; either
+    the fixtures gain the fields (`"seasonPass": null`, `"season": null`,
+    `"singleSalesOpenAt": null`, pass figures 0) in this PR with 042's author's agreement, or the
+    fields stay optional until 042. `npm test` fails at that workspace until one is chosen.
+- [X] T040 [US4] Admin event page "Single tickets on sale from …" in the venue's zone, both apps
   (React test and Rust core test first)
 
 ## Phase 7: User Story 5 — The demo Season (P2)
@@ -254,7 +263,7 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
   titles; `node scripts/check-quickstart-marks.mjs` passes
 - [X] T046 `README.md`: Seasons in the Admin app's feature list and "Today"; 041 in the built-and-
   verified list
-- [ ] T047 Confirm no `x-planned: '041'` marker is left, every `'042'` marker is, and the route-
+- [X] T047 Confirm no `x-planned: '041'` marker is left, every `'042'` marker is, and the route-
   coverage, contract-drift and boundary checks pass
 - [ ] T048 Full `npm test`, `npm run lint`, `npm run format:check`; every workspace at or above 80%
   lines (SC-007); record the coverage figures for the PR
