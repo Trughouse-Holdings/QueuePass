@@ -17,6 +17,7 @@
 | `cancelSeason` | `POST /seasons/{id}/cancel` | `queuepass-admin` | `x-planned: '041'` | 041 |
 | `getSeasonVenueMap` | `GET /seasons/{id}/venue-map` | any signed in | `x-planned: '042'` | 042 |
 | `getSeasonVenueMapSection` | `GET /seasons/{id}/venue-map/sections/{sectionId}` | any signed in | `x-planned: '042'` | 042 |
+| `getMyPassHold` | `GET /seasons/{id}/pass-hold` | `customer` | `x-planned: '042'` | 042 |
 | `holdSeasonSeat` | `POST /seasons/{id}/pass-hold` | `customer`, `x-attempt-limit: HOLD` | `x-planned: '042'` | 042 |
 | `releaseSeasonSeat` | `POST /seasons/{id}/pass-hold/release` | `customer` | `x-planned: '042'` | 042 |
 | `buySeasonPass` | `POST /seasons/{id}/passes` | `customer`, `x-attempt-limit: BUY` | `x-planned: '042'` | 042 |
@@ -32,7 +33,8 @@ declares its `429`).
 `Sport`, `SeasonRef`, `SeasonEventSummary`, `SeasonPrice`, `SeasonPriceInput`, `Season`,
 `SeasonInput`, `SeasonCancellation`, `OrderSeasonPass` (041); `PassHoldInput`, `PassHold`,
 `SeasonPassInput`, `SeasonPass` (042). The Season venue-map operations reuse `VenueMap` and
-`VenueMapSection`.
+`VenueMapSection`. `Season.passesSold` and `passRevenue` are `null` for callers who are not admins.
+`SeasonInput` refusals name a sent price by its index (`prices.<i>`).
 
 ## Changed schemas (new fields optional until the implementation)
 
@@ -43,7 +45,9 @@ declares its `429`).
 | `EventSales` | `passTicketsSold`, `passRevenue` | 041's implementation |
 | `SalesReport.totals` | `passTicketsSold`, `passRevenue` | 041's implementation |
 
-041's implementation moves each into its schema's `required` list (with the 2.2.x patch noted in
+The hand-written types in `packages/shared/src/event.ts` and `order.ts` gain the same fields as
+optional in this PR, so neither spec edits them for this. 041's implementation moves each into its
+schema's `required` list (with the 2.2.x patch noted in
 `info.version`'s history as earlier features did: "Required from 2.2.0 once implemented").
 
 ## New error codes (`ErrorEnvelope.code` and `ERROR_CODES`)
@@ -55,9 +59,14 @@ When each is used, and its `details`: research R4.
 ## Rules stated in the document's introduction
 
 A new **Seasons** paragraph: an event is in at most one Season; what an event in a Season can't do
-(`409 EVENT_IN_SEASON` on `updateEvent`, `deleteEvent`, `updateTicketTier`, `deleteTicketTier`);
-cancelling an event refunds its pass orders; the presale refusal (`409 SEASON_PRESALE` on
-`createOrder` and `reserveSeats`, served by 042); the lock order (research R2).
+(`409 EVENT_IN_SEASON` on `updateEvent` (venue, layout, seating kind, start), `deleteEvent` (any
+Season), `updateTicketTier`, `deleteTicketTier`, each also noted on its operation); layouts an
+on-sale Season uses locked, and any Season's layout undeletable (`409 LAYOUT_IN_USE`); cancelling
+an event refunds its pass orders; the presale refusal (`409 SEASON_PRESALE` on `createOrder` and
+`reserveSeats`, served by 042); **pass holds**: single-ticket operations ignore pass reservations
+(`reserveSeats`, `releaseSeats`, `listMyReservations`, the 2-minute wait; `createOrder` treats a
+pass-held seat as taken), logout ends pass holds whole, the sweep ends them (research R7, review
+B1); the lock order (research R2).
 
 ## Not changed
 

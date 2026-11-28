@@ -63,6 +63,9 @@ CREATE TABLE "SeasonPass" (
     "customerUsername" TEXT NOT NULL,
     "holderName" VARCHAR(100) NOT NULL,
     "seatId" UUID,
+    "seatSection" VARCHAR(50),
+    "seatRowLabel" VARCHAR(5),
+    "seatLabel" VARCHAR(5),
     "levelId" UUID,
     "tierName" VARCHAR(100),
     "totalPrice" DECIMAL(10,2) NOT NULL,
@@ -79,7 +82,7 @@ CREATE TABLE "SeasonPassHold" (
     "id" UUID NOT NULL,
     "seasonId" UUID NOT NULL,
     "customerSub" TEXT NOT NULL,
-    "seatId" UUID NOT NULL,
+    "seatId" UUID,
     "createdAt" TIMESTAMPTZ(6) NOT NULL,
     "expiresAt" TIMESTAMPTZ(6) NOT NULL,
     "endedAt" TIMESTAMPTZ(6),
@@ -163,7 +166,7 @@ ALTER TABLE "SeasonPrice" ADD CONSTRAINT "SeasonPrice_levelId_fkey" FOREIGN KEY 
 ALTER TABLE "SeasonPass" ADD CONSTRAINT "SeasonPass_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "SeasonPass" ADD CONSTRAINT "SeasonPass_seatId_fkey" FOREIGN KEY ("seatId") REFERENCES "Seat"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "SeasonPass" ADD CONSTRAINT "SeasonPass_seatId_fkey" FOREIGN KEY ("seatId") REFERENCES "Seat"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SeasonPass" ADD CONSTRAINT "SeasonPass_levelId_fkey" FOREIGN KEY ("levelId") REFERENCES "PriceLevel"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -172,7 +175,7 @@ ALTER TABLE "SeasonPass" ADD CONSTRAINT "SeasonPass_levelId_fkey" FOREIGN KEY ("
 ALTER TABLE "SeasonPassHold" ADD CONSTRAINT "SeasonPassHold_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "SeasonPassHold" ADD CONSTRAINT "SeasonPassHold_seatId_fkey" FOREIGN KEY ("seatId") REFERENCES "Seat"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "SeasonPassHold" ADD CONSTRAINT "SeasonPassHold_seatId_fkey" FOREIGN KEY ("seatId") REFERENCES "Seat"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 
 -- Spec 041 FR-002 (data-model.md): Season rules a single row can state.
@@ -202,11 +205,17 @@ CREATE UNIQUE INDEX "season_price_level_unique"
 CREATE UNIQUE INDEX "season_price_tier_unique"
     ON "SeasonPrice"("seasonId", lower("tierName")) WHERE "tierName" IS NOT NULL;
 
--- Spec 041 data-model.md (written by spec 042): a pass is for a seat or a ticket type name.
+-- Spec 041 data-model.md (written by spec 042): a pass is for a seat (its labels as sold) or a
+-- ticket type name; an active seated pass keeps its seat; the name on tickets as Order's (017).
 ALTER TABLE "SeasonPass" ADD CONSTRAINT "season_pass_one_target"
-    CHECK (("seatId" IS NULL) <> ("tierName" IS NULL));
+    CHECK ((("seatSection" IS NOT NULL AND "seatRowLabel" IS NOT NULL AND "seatLabel" IS NOT NULL)
+            AND "tierName" IS NULL)
+        OR ("seatSection" IS NULL AND "seatRowLabel" IS NULL AND "seatLabel" IS NULL
+            AND "seatId" IS NULL AND "tierName" IS NOT NULL));
+ALTER TABLE "SeasonPass" ADD CONSTRAINT "season_pass_active_has_seat"
+    CHECK ("status" <> 'ACTIVE' OR "tierName" IS NOT NULL OR "seatId" IS NOT NULL);
 ALTER TABLE "SeasonPass" ADD CONSTRAINT "season_pass_holder_name_length"
-    CHECK (char_length(btrim("holderName")) BETWEEN 1 AND 100);
+    CHECK (char_length("holderName") BETWEEN 1 AND 100 AND "holderName" = btrim("holderName"));
 ALTER TABLE "SeasonPass" ADD CONSTRAINT "season_pass_total_non_negative" CHECK ("totalPrice" >= 0);
 ALTER TABLE "SeasonPass" ADD CONSTRAINT "season_pass_refunded_together"
     CHECK (("refundedAt" IS NOT NULL) = ("status" = 'REFUNDED'));
@@ -216,6 +225,8 @@ ALTER TABLE "SeasonPassHold" ADD CONSTRAINT "season_pass_hold_five_minutes"
     CHECK ("expiresAt" = "createdAt" + interval '5 minutes');
 ALTER TABLE "SeasonPassHold" ADD CONSTRAINT "season_pass_hold_ended_after_start"
     CHECK ("endedAt" IS NULL OR "endedAt" >= "createdAt");
+ALTER TABLE "SeasonPassHold" ADD CONSTRAINT "season_pass_hold_live_has_seat"
+    CHECK ("endedAt" IS NOT NULL OR "seatId" IS NOT NULL);
 CREATE UNIQUE INDEX "season_pass_hold_one_live"
     ON "SeasonPassHold"("customerSub", "seasonId") WHERE "endedAt" IS NULL;
 CREATE INDEX "season_pass_hold_open_by_expiry"

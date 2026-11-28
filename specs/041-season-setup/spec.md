@@ -65,21 +65,33 @@ so Mahdi can overturn any of them in review of the spec PR.
 - Q: (Proposal question 4) What does cancelling one event or the whole Season do? → A: **Default:
   cancelling one event works as today (`005`)**: it refunds every order for that event, pass
   orders included, so each pass holder gets back that event's share, and their pass stays good for
-  the other events. **Cancelling a Season** refunds every pass in full (every pass order, voiding
-  its tickets and freeing its seats), ends any pass being bought, and leaves the Season read-only.
-  Its events stay scheduled and keep selling single tickets, with no presale.
+  the other events. **Cancelling a Season** refunds every pass in full (every pass order, games
+  already played and tickets already used included, voiding its tickets and freeing its seats),
+  ends any pass being bought, and leaves the Season read-only. Its events stay scheduled and keep
+  selling single tickets, with no presale. An admin who wants to stop selling without refunding
+  lets the sales end pass instead.
 - Q: (Proposal question 5) Can a pass be bought once the first event has started? → A: **Default:
   no.** A Season's pass sales end at its sales end time, which must be no later than the start of
   its first event. No reduced late price in v1.
 - Q: (Issue #192) Can an event in a Season change its layout, or have a pass holder's seat taken
-  off sale? → A: **Default: an event in a Season can't change its layout, or switch between
-  reserved seating and general admission**, refused naming the Season, because a pass seat is the
-  same seat of one layout at every event. A pass holder's seat is a sold ticket at every event, and
-  `038` already refuses taking a sold seat off sale. An open seat taken off sale for one event is
-  simply not offered on passes (`042`).
+  off sale? → A: **Default: an event in a Season can't change its venue or layout, or switch
+  between reserved seating and general admission**, refused naming the Season, because a pass seat
+  is the same seat of one layout at every event. For the same reason a layout an on-sale Season
+  uses can't be edited (as one with tickets sold can't, `039`), and an event in any Season, even a
+  cancelled one, can't be deleted (it stays on the Season's record). A pass holder's seat is a sold
+  ticket at every event, and `038` already refuses taking a sold seat off sale. An open seat taken
+  off sale for one event is simply not offered on passes (`042`).
 - Q: (Proposal question 7, admin side) React only first, or both Admin apps? → A: **Both, in the
   same implementation PR** (the issue): the Rust Admin app's browser check compares every Admin
   page of both apps, so a Seasons page in one app alone fails CI.
+- Q: (Issue #192) Must a general-admission Season price every ticket type name its events sell?
+  → A: **Default: no, at least one.** Each priced name must exist on every event; other names
+  (a VIP type sold only singly, say) stay single-ticket only. The issue's wording read as every
+  name; this narrows it so events with an extra ticket type can still join a Season.
+- Q: Once a Season is on sale, which rules does a save check? → A: **Default: the ones that keep it
+  sellable** (every level or at least one name priced, every event valid, sales end no later than
+  the first event), not the publish-only ones (at least 2 events, sales end in the future), so a
+  Season whose sales have ended, or with an event cancelled, can still be renamed or repriced.
 - Q: How few events can a Season have? → A: **Default: at least 2 to go on sale.** A one-event
   "season" is a single ticket. A draft may have fewer while it is being built.
 
@@ -290,9 +302,10 @@ sale with its games, prices and presale.
 - **FR-006**: A Season's sales end MUST be in the future when it is put on sale, and no later than
   the start of its earliest event (not cancelled) at every save. The time single tickets go on sale,
   when set, MUST be no later than the sales end.
-- **FR-007**: An event in a Season (not cancelled) MUST NOT change its layout, switch between
-  reserved seating and general admission, or move its start before the Season's sales end; the
-  refusal MUST name the Season.
+- **FR-007**: An event in a Season (not cancelled) MUST NOT change its venue or layout, switch
+  between reserved seating and general admission, or move its start before the Season's sales end;
+  an event in any Season MUST NOT be deleted; a layout an on-sale Season uses MUST NOT be edited,
+  and one any Season uses MUST NOT be deleted. Each refusal MUST name the Season.
 - **FR-008**: A draft with no passes MUST be deletable; deleting it frees its events. A Season on
   sale or cancelled MUST NOT be deleted.
 
@@ -304,7 +317,8 @@ sale with its games, prices and presale.
   cent.
 - **FR-010**: Putting a Season on sale MUST be refused while it has fewer than 2 events (not
   cancelled), a level with no price (seated), no priced name (general admission), or its sales end
-  in the past; each refusal MUST name the field or level at fault.
+  in the past; each refusal MUST name the field or level at fault. A save of a Season on sale MUST
+  keep the pricing and event rules but not re-check the event count or a past sales end.
 - **FR-011**: Prices MAY change while a Season is on sale; a pass already sold, its orders and its
   tickets MUST keep the prices they were sold at.
 - **FR-012**: The contract MUST state the price split for `042`: the pass price divided evenly

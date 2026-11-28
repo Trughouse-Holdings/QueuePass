@@ -27,7 +27,7 @@ export type SeasonKind = 'seated' | 'ga';
 
 export interface SeasonFixtureOptions {
   kind?: SeasonKind;
-  /** Write one sold pass (default `true`). */
+  /** Write one sold pass (default `true` on sale, `false` for a draft, which can't have one). */
   sold?: boolean;
   /** The pass price of the fixture's level or ticket type name (default `100.00`, split 33.34/33.33/33.33). */
   passPrice?: string;
@@ -72,7 +72,9 @@ export async function seasonWithSoldPass(
 ): Promise<SeasonFixture> {
   const kind = opts.kind ?? 'seated';
   const passPrice = opts.passPrice ?? '100.00';
-  const sold = opts.sold ?? true;
+  const status = opts.status ?? 'ON_SALE';
+  const sold = opts.sold ?? status === 'ON_SALE';
+  if (sold && status === 'DRAFT') throw new Error('seasonWithSoldPass: a draft has no passes');
   seasons += 1;
   const venueId = await venue(ctx, `Season Arena ${seasons}`);
   // Days far from the other fixtures' windows (a year plus a counter), a week apart.
@@ -105,7 +107,6 @@ export async function seasonWithSoldPass(
     }
   }
 
-  const status = opts.status ?? 'ON_SALE';
   const season = await ctx.prisma.season.create({
     data: {
       name: `Fixture Season ${seasons}`,
@@ -138,6 +139,9 @@ export async function seasonWithSoldPass(
         customerUsername: 'customer1',
         holderName: HOLDER,
         seatId: layout ? layout.seat('101', 1, 1) : null,
+        seatSection: layout ? '101' : null,
+        seatRowLabel: layout ? rowLabel(1) : null,
+        seatLabel: layout ? '1' : null,
         levelId: layout ? layout.levels.Lower : null,
         tierName: layout ? null : 'General',
         totalPrice: passPrice,

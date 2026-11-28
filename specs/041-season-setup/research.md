@@ -60,13 +60,24 @@ row or a unique index can state is a constraint in the migration SQL (data-model
   `cancelledAt` set exactly when CANCELLED); name trimmed, 1–100.
 - `SeasonPrice`: exactly one of `levelId`, `tierName`; unique per Season per level and per Season
   per name ignoring case; price `>= 0`.
-- `SeasonPass`: exactly one of `seatId`, `tierName`; `(customerSub, requestId)` unique;
-  `refundedAt` set exactly when REFUNDED.
+- `SeasonPass`: a seated pass has its seat's labels as sold (`seatSection`, `seatRowLabel`,
+  `seatLabel`, as `Ticket` copies them), a general-admission pass a `tierName`, never both
+  (`season_pass_one_target`); an active seated pass keeps its `seatId`
+  (`season_pass_active_has_seat`); the name on tickets trimmed, as `Order.holderName`;
+  `(customerSub, requestId)` unique; `refundedAt` set exactly when REFUNDED.
 - Foreign keys: `SeasonEvent`, `SeasonPrice` → `Season` CASCADE (deleting a draft takes them);
   `SeasonPass` → `Season` RESTRICT (a Season with a pass can't be deleted, below the Backend's own
   refusal); `SeasonEvent.eventId` → `Event` RESTRICT (an event in a Season can't be deleted);
   `SeasonPrice.levelId` → `PriceLevel` CASCADE (a removed level takes its price, spec edge case);
-  `Order.seasonPassId` → `SeasonPass` RESTRICT.
+  `Order.seasonPassId` → `SeasonPass` RESTRICT; `Season.layoutId` → `Layout` RESTRICT;
+  `SeasonPass.seatId` and `SeasonPassHold.seatId` → `Seat` SET NULL (review S1, M1), as `Ticket` and
+  `SeatHold` are, so the `039` editor can remove a seat whose passes are all refunded, and ended
+  holds stay on record; an active pass and a live hold keep their seat (CHECKs), and their seats'
+  layout is locked anyway (an active pass has valid tickets).
+- **Error mapping** (review S1): the exception filter maps a violation of `SeasonEvent_eventId_fkey`
+  to `409 EVENT_IN_SEASON` and of `Season_layoutId_fkey` to `409 LAYOUT_IN_USE`, for both Prisma's
+  `P2003` and a raw query's `23503`, instead of today's fallback ("Cannot delete this venue"). The
+  services refuse first with a named message; the mapping only covers what slips past them.
 
 **Rationale**: Constitution IV. The proposal's model table, plus what the current schema needs
 (`SeasonPassHold` for 042's one-timer holds, R7).
@@ -80,7 +91,11 @@ layouts never change venue. Rejected for now.
 **Decision**: every Season write (create, update, publish, cancel, delete) runs in one transaction
 that takes, in this order: the venue `FOR SHARE` (`lockVenueShared`, for the zone its times are
 checked against), the Season row `FOR UPDATE` (not on create), then every event involved, old and
-new, `FOR UPDATE` in id order. `042`'s pass hold and pass confirm take the Season row `FOR SHARE`,
+new, `FOR UPDATE` in id order. An update locks both the Season's stored venue and the requested
+one (`lockVenueShared` takes several, in id order); the stored venue is read before any lock, so the
+service re-reads it under the Season lock and, if it changed, rolls back and retries once, as
+`updateEvent` does with `VenueMoved` (review S8). `042`'s pass hold and pass confirm take the Season
+row `FOR SHARE`,
 then the Season's events in id order. Event writes never lock a Season: they read `SeasonEvent`,
 `Season` and `SeasonPrice` under their own event lock.
 
@@ -110,8 +125,14 @@ event update), `deleteSeason` (drafts without passes), `publishSeason`, `cancelS
 operations are declared now with `x-planned: '042'` (R7). The Season reads are 041's even though
 customers call them: 041 owns the `seasons` module, and 042 then needs no read endpoint of its own.
 
-A draft saves with prices or events missing; `publishSeason` and any save of a Season on sale apply
-the full rules (FR-010). A save of a cancelled Season is `409 SEASON_CANCELLED`.
+A draft saves with prices or events missing; `publishSeason` applies the full rules (FR-010). A save
+of a Season on sale (review S2) applies the rules that keep it sellable (prices complete, events
+valid, sales end no later than the earliest event not cancelled) but not the publish-only ones (at
+least 2 events, sales end in the future), so it can still be renamed or repriced after its sales
+end or an event's cancellation. A save of a cancelled Season is `409 SEASON_CANCELLED`.
+`passesSold` and `passRevenue` are `null` for callers who are not admins (review S3): business
+figures stay with admins. Lists order Seasons by their earliest event's start, then name; Seasons
+with no events last.
 
 **Rationale**: matches the existing event pattern (`listEvents`/`getEvent` for all, writes for
 admins); a whole-resource `PUT` keeps the form one request and its refusals per field (`031`).
@@ -124,14 +145,17 @@ admins); a whole-resource `PUT` keeps the form one request and its refusals per 
 **Decision**: 400 `VALIDATION_FAILED` with `details.fields` for shape and missing values, and for
 publish rules: `name`, `locationId`, `layoutId`, `salesEndAt`, `singleSalesOpenAt`, `sport`, `team`,
 `maxPassesPerCustomer`, `eventIds` (fewer than 2), `eventIds.<i>` (wrong venue, layout or seating
-kind; cancelled; started), `prices.<levelId>` or `prices.<tierName>` (missing or not of the layout),
-`prices.<tierName>` (an event lacks that ticket type: the message names the event). Times use
+kind; cancelled; started), `prices.<i>` for a sent entry at fault (by its index in `prices`: not of
+the layout, repeated, or a name an event lacks, the message naming the event; review M5, since a
+name may contain dots), `prices.<levelId>` for a level with no entry (ids have no dots). Names match
+ignoring case, here and in R9. Times use
 `checkEventTime`'s rules (`LOCAL_TIME_SKIPPED`, `UTC_OFFSET_MISMATCH`, with `field`). New 409 codes,
 added to `ERROR_CODES` and the contract:
 
 | Code | When | `details` |
 | --- | --- | --- |
-| `EVENT_IN_SEASON` | adding an event that is in another Season; an event write that would change the layout, seating kind, a priced ticket type's name or its deletion, or move the start before the sales end | `field`, `seasonId`, `seasonName` |
+| `EVENT_IN_SEASON` | adding an event that is in another Season; an event write that would change the venue, layout, seating kind, a priced ticket type's name or its deletion, or move the start before the sales end; deleting an event in any Season | `field`, `seasonId`, `seasonName` |
+| `LAYOUT_IN_USE` (existing) | editing a layout an on-sale Season uses; deleting a layout any Season uses | `seasonId`, `seasonName` (added beside the existing details) |
 | `SEASON_HAS_PASSES` | changing events, venue or layout, or deleting, once a pass is sold | `field`, `passesSold` |
 | `SEASON_CANCELLED` | any write to a cancelled Season | none |
 | `SEASON_NOT_DRAFT` | publishing a Season on sale; deleting one on sale or cancelled | `status` |
@@ -184,8 +208,25 @@ once; one live hold per seat (`seat_hold_one_live_per_seat`) still keeps the sea
 (`x-planned: '042'`): `getSeasonVenueMap` and `getSeasonVenueMapSection` (the `038` venue map
 schemas, a seat open only if open at every event, priced at the pass price), `holdSeasonSeat`
 (`x-attempt-limit: HOLD`, one attempt), `releaseSeasonSeat`, `buySeasonPass` (`x-attempt-limit:
-BUY`, one attempt), `listMyPasses`. General-admission passes hold nothing (general admission has no
-holds today) and are bought directly.
+BUY`, one attempt), `getMyPassHold` (the caller's live pass hold, so its countdown survives a
+reload; review S6), `listMyPasses`. General-admission passes hold nothing (general admission has no
+holds today) and are bought directly. The hold sweep ends a run-out pass hold's `SeasonPassHold`
+row (`endedAt`) with its reservations, so `season_pass_hold_one_live` never keeps a dead hold.
+
+**Single-ticket paths ignore pass reservations** (review B1). Allowing two live reservations per
+customer per event (one of each kind) breaks today's assumption of one, so the contract states, and
+`042` implements in the change that first writes a pass reservation:
+
+- `ReservationsService` `reserveLocked` and the release path (`reservations.service.ts`, about lines
+  108 and 264: `findFirst({eventId, customerSub, endedAt: null})`) add `passHoldId: null`;
+- `listMine` (`listMyReservations`, the cart) lists single reservations only; `releaseAllMine`
+  (logout) ends pass holds too, whole (reservations and `SeasonPassHold` together);
+- `assertNoWait` (the 2-minute wait, about line 190) counts single reservations only;
+- `OrdersService.seatsFor` (`orders.service.ts`, about line 437, `mine = held.filter(h =>
+  h.customerSub === buyer.sub)`) treats a seat in a pass hold as taken even for its own customer,
+  and `reservationRanOut` (about line 465) looks at single reservations only.
+
+Nothing writes a pass reservation until `042`, so these paths behave as today after this PR.
 
 **Rationale**: the proposal's "one `SeatReservation` per event under one 5-minute timer"; the sweep
 and `closeHolds` already end reservations, so a pass hold is N ordinary reservations with a group.
@@ -202,22 +243,32 @@ after "Order status". Season totals (`passesSold`, `passRevenue`) are fields of 
 the Seasons list and page (FR-018, FR-020).
 
 **Rationale**: one table per export keeps `023`'s single table model (CSV, XLSX and PDF from one
-`ExportColumn` list). The PDF's letter-landscape width (`attendee-rows.ts:23`) must still fit: the
-Pass column is narrow and truncates long names with an ellipsis, as other text columns do.
+`ExportColumn` list). The PDF's letter-landscape width (`attendee-rows.ts:23`) must still fit: text
+columns wrap (`pdf.ts`, `MIN_PT_PER_CHAR`), so the Pass column wraps a long Season name like the
+others; the sales PDF gains two number columns sized to content. The PDF fit tests
+(`pdf.fit.test` and the Rust equivalent) cover both tables with the new columns (review S8).
 
 **Alternatives**: a Seasons section in the sales report: a second table in every export format.
 
 ## R9. Event-side locks
 
 **Decision**: under the event lock, the events and tiers services read the event's Season (not
-cancelled) and refuse with `409 EVENT_IN_SEASON`:
+cancelled, except for deletes) and refuse with `409 EVENT_IN_SEASON`:
 
-- `updateEvent` changing `layoutId` or `reservedSeating` (field `layoutId` or `reservedSeating`);
-  checked before `assertLayoutFree`, so the Season is named even when tickets are sold;
+- `updateEvent` changing `locationId` (review S4), `layoutId` or `reservedSeating` (field
+  `locationId`, `layoutId` or `reservedSeating`); checked before `assertLayoutFree`, so the Season
+  is named even when tickets are sold;
 - `updateEvent` moving `startsAt` before the Season's `salesEndAt` (field `startsAt`);
 - a ticket type rename or delete when the old name is priced in its general-admission Season
   (field `name`, or the tier for delete);
-- `deleteEvent` of an event in a Season (field `id`), below which the RESTRICT key also holds.
+- `deleteEvent` of an event in any Season, cancelled Seasons included (field `id`; review S1), below
+  which the RESTRICT key also holds.
+
+**Layouts** (review S5): `LayoutsService`'s lock check (`assertUnlocked` / `lockingEvents`,
+`layouts.service.ts` about line 1341) also treats a layout as locked while an on-sale Season uses
+it (`409 LAYOUT_IN_USE`, naming the Season), so a level can't be removed (taking its pass price) or
+added (unpriced) under a Season customers can buy. A draft's layout stays editable; publishing then
+re-checks the prices. Deleting a layout any Season uses is refused the same way.
 
 Cancelling an event is unchanged (FR-015): it refunds pass orders as any order, and ends any live
 pass-hold reservation for that event; `042` treats a pass hold with an ended reservation as gone.
@@ -230,7 +281,9 @@ every confirmed order with a `seasonPassId` of the Season (`REFUNDED`, `refunded
 tickets; set every active pass REFUNDED with `refundedAt`; set the Season CANCELLED with
 `cancelledAt`; after commit, publish the freed seats per event on `streamSeatMap` (the
 `SeatEventsService` path `cancel` uses). Response: `{season, passesRefunded, ordersRefunded,
-ticketsVoided}`. A draft is deleted, not cancelled (`409 SEASON_NOT_ON_SALE`).
+ticketsVoided}`. Every pass order is refunded, games already played and tickets already used
+included (spec Clarifications, review M7). A draft is deleted, not cancelled (`409
+SEASON_NOT_ON_SALE`).
 
 ## R11. The Admin app (React)
 

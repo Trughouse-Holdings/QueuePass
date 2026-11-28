@@ -740,7 +740,8 @@ export interface paths {
          *     tiers are deleted with it. An event with orders cannot be deleted (`409
          *     EVENT_HAS_ORDERS`, feature 005); cancel it instead, which keeps its records. Feature 014:
          *     the event's images are deleted with it. Feature 015: its seat reservations are deleted
-         *     with it, and every open `streamSeatMap` stream for it ends.
+         *     with it, and every open `streamSeatMap` stream for it ends. Feature 041: an event in a
+         *     Season, cancelled Seasons included, can't be deleted (`409 EVENT_IN_SEASON`).
          */
         delete: operations["deleteEvent"];
         options?: never;
@@ -796,7 +797,10 @@ export interface paths {
          *     refusal names its field the same way: `details.field` is `tiers.<index>.<field>` (including
          *     `id`), `tiers`, `layoutId`, `levelPrices`, `offSale`, or `totalTicketCapacity` on a `409`; on a `400`, each
          *     `details.fields` entry starts with its place. A refused removal of a type with orders is
-         *     `409 TIER_HAS_ORDERS` with `details.field: tiers`, and the message names the type.
+         *     `409 TIER_HAS_ORDERS` with `details.field: tiers`, and the message names the type. Feature
+         *     041: an event in a Season not cancelled can't change `locationId`, `layoutId` or seating
+         *     kind, move `startsAt` before the Season's `salesEndAt`, or rename or remove a ticket type
+         *     whose name the Season prices (`409 EVENT_IN_SEASON`, see **Seasons** above).
          */
         patch: operations["updateEvent"];
         trace?: never;
@@ -857,7 +861,8 @@ export interface paths {
          * @description Permanent. Clients MUST ask the user to confirm first. A tier with orders cannot be
          *     removed (`409 TIER_HAS_ORDERS`); a cancelled event's tiers cannot change (`409
          *     EVENT_CANCELLED`). Feature 015: the tier's seat reservations are deleted with it, and
-         *     their seats become open at once.
+         *     their seats become open at once. Feature 041: a tier whose name its event's Season (not
+         *     cancelled) prices can't be removed (`409 EVENT_IN_SEASON`).
          */
         delete: operations["deleteTicketTier"];
         options?: never;
@@ -866,7 +871,8 @@ export interface paths {
          * Update a ticket tier
          * @description Same rules as creating one, evaluated against the event's other tiers. `quantity` may not
          *     drop below the tier's tickets sold (`409 CAPACITY_EXCEEDED`). A price change does not
-         *     affect orders already placed.
+         *     affect orders already placed. Feature 041: renaming a tier whose name its event's Season
+         *     (not cancelled) prices is refused (`409 EVENT_IN_SEASON`, `details.field: name`).
          */
         patch: operations["updateTicketTier"];
         trace?: never;
@@ -1477,7 +1483,8 @@ export interface paths {
          * List Seasons
          * @description Feature 041. Admins get every Season, drafts and cancelled ones included; any other caller
          *     gets only Seasons on sale (`ON_SALE`), whether or not their sales have ended
-         *     (`salesOpen`). Ordered by the start of each Season's earliest event, then name.
+         *     (`salesOpen`). Ordered by the start of each Season's earliest event, then name; Seasons
+         *     with no events last, by name.
          */
         get: operations["listSeasons"];
         put?: never;
@@ -1520,8 +1527,12 @@ export interface paths {
          *     the events, venue and layout can't change (`409 SEASON_HAS_PASSES`, `details.field`:
          *     `eventIds`, `locationId` or `layoutId`, and `details.passesSold`); a pass bought at the
          *     same moment is either seen or waits for this save (feature 041 research R2). A Season on
-         *     sale is checked as `publishSeason` checks a draft, so it stays sellable. Prices may change
-         *     at any time; passes, orders and tickets already sold keep their prices.
+         *     sale must stay sellable: every level of its layout (or at least one ticket type name)
+         *     priced, every event valid, and `salesEndAt` no later than its earliest event not cancelled;
+         *     the publish-only rules (at least 2 events, `salesEndAt` in the future) are not re-checked,
+         *     so a Season whose sales have ended, or with an event cancelled, can still be renamed and
+         *     repriced. Prices may change at any time; passes, orders and tickets already sold keep their
+         *     prices.
          */
         put: operations["updateSeason"];
         post?: never;
@@ -1554,8 +1565,8 @@ export interface paths {
          *     `details.fields`, while the Season has fewer than 2 events not cancelled (`eventIds`), a
          *     price level of its layout with no price (`prices.<levelId>`), no priced ticket type name
          *     for general admission (`prices`), an event without a ticket type of a priced name
-         *     (`prices.<tierName>`, naming the event), or its `salesEndAt` not in the future or after
-         *     the start of its earliest event (`salesEndAt`). Refused `409 SEASON_NOT_DRAFT` when it is
+         *     (`prices.<i>`, the entry's index, naming the event), or its `salesEndAt` not in the future
+         *     or after the start of its earliest event (`salesEndAt`). Refused `409 SEASON_NOT_DRAFT` when it is
          *     not a draft.
          */
         post: operations["publishSeason"];
@@ -1657,7 +1668,12 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * My live pass hold for a Season
+         * @description Feature 042. The caller's live pass hold for the Season, so its countdown survives a
+         *     reload; `404` when there is none.
+         */
+        get: operations["getMyPassHold"];
         put?: never;
         /**
          * Hold one seat at every event of a Season
@@ -3429,7 +3445,7 @@ export interface components {
              */
             singleSalesOpenAt: string | null;
             maxPassesPerCustomer: number | null;
-            /** @description `ON_SALE` and before `salesEndAt`, by the Backend's clock. */
+            /** @description `ON_SALE` and before `salesEndAt`, by the database's clock. */
             salesOpen: boolean;
             /** Format: date-time */
             publishedAt: string | null;
@@ -3439,10 +3455,10 @@ export interface components {
             events: components["schemas"]["SeasonEventSummary"][];
             /** @description By level rank (seated) or name (general admission). */
             prices: components["schemas"]["SeasonPrice"][];
-            /** @description Active (not refunded) passes. */
-            passesSold: number;
-            /** @description The sum of the Season's confirmed pass orders. */
-            passRevenue: string;
+            /** @description Active (not refunded) passes; `null` for callers who are not admins. */
+            passesSold: number | null;
+            /** @description The sum of the Season's confirmed pass orders; `null` for callers who are not admins. */
+            passRevenue: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -3456,9 +3472,11 @@ export interface components {
          *     earliest event not cancelled; `singleSalesOpenAt` no later than `salesEndAt`; times as
          *     event times (the venue's local time with its offset, feature 020). Each event at the
          *     venue, on the layout (seated) or general admission, scheduled, not started, and in no
-         *     other Season (`eventIds.<i>`), at most 50, no repeats. Prices: seated, each `levelId` a
-         *     level of the layout, once; general admission, each `tierName` once ignoring case, and
-         *     every event has a ticket type of that name.
+         *     other Season (`eventIds.<i>`), at most 50, no repeats. Prices (refusals name `prices.<i>`,
+         *     the entry's index): seated, each `levelId` a level of the layout, once; general admission,
+         *     each `tierName` once ignoring case, and every event has a ticket type of that name,
+         *     ignoring case. A general-admission Season need not price every ticket type name its events
+         *     sell, only at least one (feature 041 Clarifications).
          */
         SeasonInput: {
             name: string;
@@ -5683,6 +5701,33 @@ export interface operations {
             };
             400: components["responses"]["ValidationFailed"];
             401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getMyPassHold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The live pass hold. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PassHold"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };

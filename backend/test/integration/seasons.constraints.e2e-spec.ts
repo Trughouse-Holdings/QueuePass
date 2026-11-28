@@ -201,6 +201,17 @@ describe('Season rules below the Backend (041 shared contract)', () => {
       ).rejects.toThrow(refusedBy('season_pass_one_target'));
     });
 
+    it('keeps an active seated pass on its seat, and the name on tickets trimmed', async () => {
+      const seat = { seatSection: '101', seatRowLabel: 'A', seatLabel: '3' };
+      await expect(pass(seat)).rejects.toThrow(refusedBy('season_pass_active_has_seat'));
+      await expect(
+        pass({ ...seat, status: 'REFUNDED', refundedAt: new Date() }),
+      ).resolves.toBeDefined();
+      await expect(pass({ tierName: 'G', holderName: ' X ' })).rejects.toThrow(
+        refusedBy('season_pass_holder_name_length'),
+      );
+    });
+
     it('keeps REFUNDED and refundedAt together', async () => {
       await expect(pass({ tierName: 'G', status: 'REFUNDED' })).rejects.toThrow(
         refusedBy('season_pass_refunded_together'),

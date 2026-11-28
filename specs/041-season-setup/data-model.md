@@ -76,8 +76,9 @@ partial, `WHERE tierName IS NOT NULL`).
 | `seasonId` | uuid → `Season` RESTRICT | indexed |
 | `customerSub` | text | Keycloak subject, as on `Order` |
 | `customerUsername` | text | as on `Order` |
-| `holderName` | varchar(100) | the name on every ticket (`017`), 1–100 |
-| `seatId` | uuid? → `Seat` RESTRICT | seated pass |
+| `holderName` | varchar(100) | the name on every ticket (`017`), 1–100, trimmed, as `Order` |
+| `seatId` | uuid? → `Seat` SET NULL | seated pass; kept while `ACTIVE` (`season_pass_active_has_seat`) |
+| `seatSection`, `seatRowLabel`, `seatLabel` | varchar(50), varchar(5), varchar(5) | seated pass: the seat's labels as sold, as `Ticket` copies them |
 | `levelId` | uuid? → `PriceLevel` SET NULL | the seat's level when bought (seated) |
 | `tierName` | varchar(100)? | general-admission pass |
 | `totalPrice` | decimal(10,2) | the pass price when bought, `>= 0` |
@@ -86,8 +87,9 @@ partial, `WHERE tierName IS NOT NULL`).
 | `createdAt` | timestamptz | |
 | `refundedAt` | timestamptz? | set exactly when `REFUNDED` (`season_pass_refunded_together`) |
 
-Exactly one of `seatId`, `tierName` (`season_pass_one_target`). Indexes: `seasonId`,
-`(customerSub, createdAt)`.
+Exactly one kind (`season_pass_one_target`): the three seat labels and no `tierName`, or a
+`tierName` and no seat or labels. Indexes: `seasonId`, `seatId`, `levelId`, `(customerSub,
+createdAt)`.
 
 ## SeasonPassHold (written by `042`, R7)
 
@@ -96,14 +98,14 @@ Exactly one of `seatId`, `tierName` (`season_pass_one_target`). Indexes: `season
 | `id` | uuid | primary key |
 | `seasonId` | uuid → `Season` CASCADE | |
 | `customerSub` | text | |
-| `seatId` | uuid → `Seat` CASCADE | the one seat held at every event |
+| `seatId` | uuid? → `Seat` SET NULL | the one seat held at every event; kept while live (`season_pass_hold_live_has_seat`) |
 | `createdAt` | timestamptz | database clock |
 | `expiresAt` | timestamptz | `= createdAt + 5 minutes` (`season_pass_hold_five_minutes`) |
 | `endedAt` | timestamptz? | `NULL` while live |
 
 One live hold per customer per Season: partial unique `(customerSub, seasonId) WHERE endedAt IS
 NULL` (`season_pass_hold_one_live`). Partial index on `expiresAt WHERE endedAt IS NULL` for the
-sweep.
+sweep, which ends the pass hold with its reservations (R7).
 
 ## Changes to existing tables
 
@@ -113,9 +115,10 @@ sweep.
 - **`SeatReservation.passHoldId`** uuid? → `SeasonPassHold` CASCADE, indexed. One live reservation
   per pass hold per event: partial unique `(passHoldId, eventId) WHERE passHoldId IS NOT NULL AND
   endedAt IS NULL` (`seat_reservation_one_per_pass_hold_event`).
-- **`seat_reservation_one_active`** is replaced by the same index over `(customerSub, eventId,
+- **`seat_reservation_one_active`** is replaced by the same index over `(eventId, customerSub,
   (passHoldId IS NULL)) WHERE endedAt IS NULL`: one live single reservation and one live pass
-  reservation per customer per event (R7).
+  reservation per customer per event (R7). Every single-ticket path filters `passHoldId IS NULL`
+  (R7's list, implemented by `042`).
 
 ## Derived values (no columns)
 

@@ -376,7 +376,7 @@ model Seat {
   tickets    Ticket[]
   holds      SeatHold[]
   offSaleFor EventOffSaleSeat[]
-  // Spec 041: passes sold for this seat (RESTRICT) and live pass holds of it (CASCADE).
+  // Spec 041: passes sold for this seat and pass holds of it (both SET NULL, as tickets and holds).
   seasonPasses    SeasonPass[]
   seasonPassHolds SeasonPassHold[]
 
@@ -556,9 +556,11 @@ model SeasonPrice {
   @@index([levelId])
 }
 
-// Spec 041 data-model.md, written by spec 042: one customer's purchase of a Season. Exactly one of
-// seatId and tierName (season_pass_one_target); refundedAt set exactly when REFUNDED; CHECKs in the
-// migration SQL. RESTRICT on the Season and seat: sold passes stay on record.
+// Spec 041 data-model.md, written by spec 042: one customer's purchase of a Season. A seated pass
+// has its seat's labels as sold (seatSection, seatRowLabel, seatLabel, as on Ticket), a general-
+// admission pass a tierName; exactly one kind (season_pass_one_target). The seat is SET NULL, as on
+// Ticket, but an active seated pass keeps it (season_pass_active_has_seat). refundedAt set exactly
+// when REFUNDED. CHECKs in the migration SQL. RESTRICT on the Season: sold passes stay on record.
 model SeasonPass {
   id               String           @id @default(uuid()) @db.Uuid
   season           Season           @relation(fields: [seasonId], references: [id], onDelete: Restrict)
@@ -566,8 +568,11 @@ model SeasonPass {
   customerSub      String
   customerUsername String
   holderName       String           @db.VarChar(100)
-  seat             Seat?            @relation(fields: [seatId], references: [id], onDelete: Restrict)
+  seat             Seat?            @relation(fields: [seatId], references: [id], onDelete: SetNull)
   seatId           String?          @db.Uuid
+  seatSection      String?          @db.VarChar(50)
+  seatRowLabel     String?          @db.VarChar(5)
+  seatLabel        String?          @db.VarChar(5)
   level            PriceLevel?      @relation(fields: [levelId], references: [id], onDelete: SetNull)
   levelId          String?          @db.Uuid
   tierName         String?          @db.VarChar(100)
@@ -594,14 +599,16 @@ enum SeasonPassStatus {
 // Spec 041 research R7, written by spec 042: one seat held at every event of a Season under one
 // 5-minute timer; each event's hold is an ordinary SeatReservation with this passHoldId. Exactly 5
 // minutes (season_pass_hold_five_minutes) and one live per customer per Season
-// (season_pass_hold_one_live, partial unique); both in the migration SQL.
+// (season_pass_hold_one_live, partial unique); both in the migration SQL. The seat is SET NULL, as
+// on SeatHold, so ended holds stay on record, but a live hold keeps it
+// (season_pass_hold_live_has_seat).
 model SeasonPassHold {
   id           String            @id @default(uuid()) @db.Uuid
   season       Season            @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   seasonId     String            @db.Uuid
   customerSub  String
-  seat         Seat              @relation(fields: [seatId], references: [id], onDelete: Cascade)
-  seatId       String            @db.Uuid
+  seat         Seat?             @relation(fields: [seatId], references: [id], onDelete: SetNull)
+  seatId       String?           @db.Uuid
   createdAt    DateTime          @db.Timestamptz(6)
   expiresAt    DateTime          @db.Timestamptz(6)
   endedAt      DateTime?         @db.Timestamptz(6)

@@ -56,6 +56,16 @@ export interface Event {
    * 032 on; a missing value means `null` (contracts/README.md).
    */
   checkInDetailsRemovedAt?: string | null;
+  /**
+   * Spec 041 (research R5): the Season the event belongs to; `null` if none. Optional in contract
+   * 2.2.0 until 041's implementation; a missing value means `null`.
+   */
+  season?: { id: string; name: string } | null;
+  /**
+   * Spec 041 FR-013: while the event's Season is on sale and its presale runs, when single tickets
+   * go on sale; `null` otherwise. A missing value means `null`.
+   */
+  singleSalesOpenAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

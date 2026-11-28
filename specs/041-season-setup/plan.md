@@ -13,7 +13,7 @@ in this PR).
   `SeasonEvent`, `SeasonPrice`, `SeasonPass`, `SeasonPassHold`, `Order.seasonPassId` and
   `SeatReservation.passHoldId`, with every single-row rule as a CHECK and "an event in one Season"
   as a primary key; contract **2.2.0** declares 041's seven operations (`x-planned: '041'`) and
-  042's six (`x-planned: '042'`), the new fields on `Event`, `Order`, `EventSales` and the report
+  042's seven (`x-planned: '042'`), the new fields on `Event`, `Order`, `EventSales` and the report
   totals (optional until the implementation), and eight error codes; the fixture
   `seasonWithSoldPass` gives both specs a Season with 3 events, prices and one sold pass split as
   R6 says. `npm test` stays green with nothing served.
@@ -31,6 +31,9 @@ in this PR).
 - **Demo data** (R13): three men's basketball games and the "Louisville Cardinals Basketball
   2026–27" Season on sale with a presale, through the services.
 - **Constitution 3.12.1** (R15): roadmap rows `041` and `042`; next free `043`.
+- **Independent review** (2026-11-28, one round): 1 blocking (single-ticket paths and the
+  per-kind reservation index, R7), 9 should-fix and 9 minor findings, all addressed in this PR
+  (research notes "review B1", "S1"… where each lands; tasks T011a, T029a, T029b added).
 
 ## Technical Context
 
@@ -58,7 +61,7 @@ within `LOCKING_TX` (15 s); in practice under a second for 16 events.
 names its field (`031`); times in the venue's zone (`020`); 042's files untouched (proposal's
 parallel rules): the hold service, customer controllers, `customer-app/`, `customer-rust-app/`.
 
-**Scale/Scope**: 7 operations served, 6 declared for 042; 2 Admin apps × (1 list, 1 form) plus
+**Scale/Scope**: 7 operations served, 7 declared for 042; 2 Admin apps × (1 list, 1 form) plus
 report, attendee and event-form changes; one demo Season.
 
 ## Constitution Check
@@ -78,7 +81,8 @@ report, attendee and event-form changes; one demo Season.
 | Roadmap | ✅ | Rows `041-season-setup` and `042-season-pass-purchase` reserved here (3.12.1); next free `043` (R15). |
 | Shared-surface approval | ⚠️ | `constitution.md`, `openapi.yaml`, `backend/prisma/` and `packages/shared/` change: every team member approves this PR. |
 
-**Result**: passes, with the Principle III deviation justified below.
+**Result**: passes, with the Principle III deviation justified below; the implementation PR's
+description restates it (gate 7).
 
 **Re-check after Phase 1**: unchanged. The data model adds no rule an application-only check
 carries under concurrency (R2), and no role.
@@ -140,4 +144,4 @@ service, or the customer purchase paths.
 
 | Violation | Why needed | Simpler alternative rejected because |
 |---|---|---|
-| Principle III: the spec PR carries a migration, `schema.prisma`, and test code (the fixture and its constraint test), not only the data model in prose and the OpenAPI changes | Nate's decision (2026-11-27): the proposal's shared contract (models, migration, fixture) merges first so `042` can be built in parallel against real tables and a real sold pass, without waiting for 041's implementation | A separate contract PR (#191, closed at Nate's request); or the model in prose only, which leaves 042 unable to run a test until 041's implementation merges, and two specs writing the same migration |
+| Principle III: the spec PR carries a migration, `schema.prisma`, the hand-written shared types (`event.ts`, `order.ts`), and test code (the fixture, its constraint test, the route-coverage test's planned-limit rule), plus the demo reset's summary words for the new tables (`demo-reset.ts` and its test, which would fail on `main` otherwise), not only the data model in prose and the OpenAPI changes | Nate's decision (2026-11-27): the proposal's shared contract (models, migration, fixture) merges first so `042` can be built in parallel against real tables and a real sold pass, without waiting for 041's implementation | A separate contract PR (#191, closed at Nate's request); or the model in prose only, which leaves 042 unable to run a test until 041's implementation merges, and two specs writing the same migration |

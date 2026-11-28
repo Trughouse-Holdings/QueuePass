@@ -2,7 +2,8 @@
 
 **Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md) (R1–R16),
 [data-model.md](./data-model.md), [contracts/README.md](./contracts/README.md) (contract 2.2.0),
-[quickstart.md](./quickstart.md) (S0–S11). 52 tasks; T001–T005 are done in the spec PR.
+[quickstart.md](./quickstart.md) (S0–S11). 55 tasks (three added by the spec review: T011a, T029a,
+T029b); T001–T005 are done in the spec PR.
 
 **Issue**: [#192](https://github.com/Trughouse-Holdings/QueuePass/issues/192). The implementation
 PR's **description** says `fixes #192`. No commit message on either branch, and not the spec PR,
@@ -37,17 +38,21 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 
 ## Phase 1: Shared contract (spec PR)
 
-- [X] T001 Contract 2.2.0 in `contracts/openapi.yaml`: the 13 Season operations (041's
+- [X] T001 Contract 2.2.0 in `contracts/openapi.yaml`: the 14 Season operations (041's
   `x-planned: '041'`, 042's `x-planned: '042'`), the new schemas, optional new fields on `Event`,
-  `Order`, `EventSales`, `SalesReport.totals`, eight error codes, the **Seasons** paragraph; regenerate
-  `packages/shared/src/api-schema.ts`; add the codes to `packages/shared/src/errors.ts` (R3, R4, R14)
+  `Order`, `EventSales`, `SalesReport.totals`, eight error codes, the **Seasons** paragraph;
+  regenerate `packages/shared/src/api-schema.ts`; add the codes to `packages/shared/src/errors.ts`;
+  the same new fields, optional, on the hand-written `packages/shared/src/event.ts` and `order.ts`
+  (R3, R4, R14)
 - [X] T002 `backend/prisma/schema.prisma` and `backend/prisma/migrations/20261127120000_seasons/
   migration.sql`: `Season`, `SeasonEvent`, `SeasonPrice`, `SeasonPass`, `SeasonPassHold`,
   `Order.seasonPassId`, `SeatReservation.passHoldId`, every CHECK and partial unique index in
   data-model.md, `seat_reservation_one_active` per kind (R1, R7)
 - [X] T003 The shared fixture `backend/test/setup/season-fixtures.ts` (`seasonWithSoldPass`,
-  `splitPassPrice`), `rowLabel` and `testTicketCode` exported from `fixtures.ts`, the Season tables in
-  `reset-db.ts`, and `backend/test/integration/seasons.constraints.e2e-spec.ts` (R6, R14)
+  `splitPassPrice`), `rowLabel` and `testTicketCode` exported from `fixtures.ts`, the Season tables
+  in `reset-db.ts`, and `backend/test/integration/seasons.constraints.e2e-spec.ts` (R6, R14); the
+  demo reset's summary words for the new tables in `backend/src/scripts/demo-reset.ts` and
+  `demo-reset.e2e-spec.ts` (commit c892e2a), so `main` stays green
 - [X] T004 `backend/test/contract/route-coverage.e2e-spec.ts`: planned operations declare
   `x-attempt-limit` and `429` but aren't matched to `@AttemptLimit` routes until served
 - [X] T005 Constitution 3.12.1 (roadmap rows `041`, `042`; next free `043`) and the README's version
@@ -69,15 +74,22 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
   `maxPassesPerCustomer` 1–10 or null, `eventIds` ≤ 50 unique uuids, `prices` ≤ 50
   `SeasonPriceInput` with exactly one of `levelId`/`tierName`)
 - [ ] T009 `backend/src/seasons/season-lock.ts`: `lockSeasonWrite(tx, {locationId, seasonId?,
-  eventIds})` takes the venue `FOR SHARE` (`lockVenueShared`), the Season `FOR UPDATE`, then every
-  event `FOR UPDATE` in id order (R2); widen `checkEventTime`'s field type in
-  `backend/src/events/event-time.ts` to accept `salesEndAt` and `singleSalesOpenAt` (R16)
+  eventIds})` takes the venue `FOR SHARE` (`lockVenueShared`; on update both the stored and the
+  requested venue), the Season `FOR UPDATE`, then every event `FOR UPDATE` in id order; re-reads the
+  Season's venue under the lock and retries once if it moved, as `updateEvent`'s `VenueMoved` (R2);
+  widen `checkEventTime`'s field type in `backend/src/events/event-time.ts` to accept `salesEndAt`
+  and `singleSalesOpenAt` (R16)
 - [ ] T010 `backend/src/seasons/season-view.ts`: `toSeason(row, {admin})` building the contract's
   `Season` (venue name and zone, layout name, events by `startsAt`, prices by level rank or name,
-  `passesSold` = active passes, `passRevenue` = sum of confirmed pass orders, `salesOpen` by the
-  database's clock)
+  `passesSold` = active passes, `passRevenue` = sum of confirmed pass orders, both `null` unless
+  `admin`; `salesOpen` by the database's clock; lists by earliest event start, then name, Seasons
+  with no events last)
 - [ ] T011 `backend/src/seasons/seasons.module.ts`, `seasons.controller.ts` (empty handlers wired),
   registered in `backend/src/app.module.ts`
+- [ ] T011a *(test first)* Error mapping in `backend/src/common/filters/prisma-exception.filter.ts`
+  (R1): a violation of `SeasonEvent_eventId_fkey` is `409 EVENT_IN_SEASON` and of
+  `Season_layoutId_fkey` `409 LAYOUT_IN_USE`, for Prisma `P2003` and raw-query `23503`, not the
+  venue fallback; unit test beside the filter's existing tests
 
 **Checkpoint**: the module loads; route coverage still passes (no marker removed yet).
 
@@ -105,18 +117,18 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 - [ ] T017 [P] [US1] *(test first)* `admin-app/test/season-form-checks.test.ts`: the same rules as
   T006 as previews, keyed by the Backend's field paths
 - [ ] T018 [US1] `admin-app/src/pages/season-form-checks.ts` to pass T017
-- [ ] T019 [US1] *(test first)* `admin-app/test/SeasonForm.test.tsx` and `Seasons.test.tsx`: the list
-  shows name, venue, sport and team, events, status text (Draft, On sale, Presale until …, Sales
-  ended, Cancelled), passes sold, pass revenue; the form's picker lists only upcoming scheduled events
-  at the venue on the layout (or general admission) not in another Season; a price box per level (or
-  per name); missing fields marked and the first focused; a Backend refusal placed beside its field
-  with every value kept; Save then Put on sale
+- [ ] T019 [US1] *(test first)* `admin-app/test/SeasonForm.test.tsx` and `Seasons.test.tsx`: the
+  list shows name, venue, sport and team, events, status text (Draft, On sale, Presale until …,
+  Sales ended, Cancelled), passes sold, pass revenue; the form's picker lists only upcoming
+  scheduled events at the venue on the layout (or general admission) not in another Season; a price
+  box per level (or per name); missing fields marked and the first focused; a Backend refusal placed
+  beside its field with every value kept; Save then Put on sale
 - [ ] T020 [US1] `admin-app/src/pages/Seasons.tsx`, `SeasonForm.tsx`; routes `/seasons`,
   `/seasons/new`, `/seasons/:id` and a Seasons nav link between Events and Reports in
   `admin-app/src/App.tsx` (R11); date-and-time controls as the event form (`036`)
 - [ ] T021 [P] [US1] *(test first)* `admin-rust-app/core/tests/season_form.rs`: T017's cases
-- [ ] T022 [US1] `admin-rust-app/core/src/forms/season.rs`, `core/src/pages/seasons.rs` (status text,
-  picker filter), the Season ops in `core/src/api/client.rs` (`pub mod ops`) to pass T021
+- [ ] T022 [US1] `admin-rust-app/core/src/forms/season.rs`, `core/src/pages/seasons.rs` (status
+  text, picker filter), the Season ops in `core/src/api/client.rs` (`pub mod ops`) to pass T021
 - [ ] T023 [US1] `admin-rust-app/app/src/pages/seasons.rs`, `season_form.rs`, routes in
   `app/src/routes.rs`, nav in `app/src/shell.rs`, with the React markup and class names (R12)
 
@@ -130,31 +142,41 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 - [ ] T024 [US2] *(test first)* `backend/test/integration/seasons.update.e2e-spec.ts`:
   `updateSeason` replaces fields, events and prices; with the fixture's pass, changing events, venue
   or layout is `409 SEASON_HAS_PASSES` (`details.field`, `passesSold`), a price change saves and the
-  sold orders keep `33.34/33.33/33.33`; a Season on sale is checked as publish; a cancelled one is
-  `409 SEASON_CANCELLED`; `deleteSeason` of a draft frees its events, of one on sale is
-  `409 SEASON_NOT_DRAFT`
+  sold orders keep `33.34/33.33/33.33`; a save of a Season on sale keeps its pricing and event rules
+  but succeeds after its sales end has passed and with one of two events cancelled (R3); a cancelled
+  one is `409 SEASON_CANCELLED`; a customer token reads `passesSold`/`passRevenue` as `null`;
+  `deleteSeason` of a draft frees its events, of one on sale is `409 SEASON_NOT_DRAFT`
 - [ ] T025 [US2] *(test first)* in the same file: an `updateSeason` removing an event racing a pass
   row inserted under the Season `FOR SHARE` lock (as 042 will): the update is either refused as
   `SEASON_HAS_PASSES` or completes before the insert, never both (FR-005, R2, SC-002)
 - [ ] T026 [US2] *(test first)* `backend/test/integration/seasons.cancel.e2e-spec.ts`:
   `cancelSeason` refunds every pass order, voids its tickets, sets the pass `REFUNDED` with
-  `refundedAt`, ends live pass holds (rows written directly) with `endReason CLOSED`, sets the Season
-  `CANCELLED`, leaves the events `SCHEDULED`, returns the counts; a failure part way leaves nothing
-  changed; a draft is `409 SEASON_NOT_ON_SALE` (FR-014, SC-006)
+  `refundedAt`, ends live pass holds (rows written directly) with `endReason CLOSED`, sets the
+  Season `CANCELLED`, leaves the events `SCHEDULED`, returns the counts; a failure part way leaves
+  nothing changed; a draft is `409 SEASON_NOT_ON_SALE` (FR-014, SC-006)
 - [ ] T027 [US2] *(test first)* `backend/test/integration/events.season-lock.e2e-spec.ts`: for an
-  event in the fixture's Season, `updateEvent` changing `layoutId` or `reservedSeating`, or moving
-  `startsAt` before `salesEndAt`, `deleteEvent`, and (general-admission fixture) renaming or deleting
-  the priced ticket type are `409 EVENT_IN_SEASON` naming the Season; `cancelEvent` refunds the pass
-  order like any order and the pass stays `ACTIVE` (FR-007, FR-015, R9)
+  event in the fixture's Season, `updateEvent` changing `locationId`, `layoutId` or
+  `reservedSeating`, or moving `startsAt` before `salesEndAt`, and (general-admission fixture)
+  renaming (case-insensitive match) or deleting the priced ticket type are `409 EVENT_IN_SEASON`
+  naming the Season; `deleteEvent` is refused for an event of a cancelled Season too; `cancelEvent`
+  refunds the pass order like any order and the pass stays `ACTIVE` (FR-007, FR-015, R9)
 - [ ] T028 [US2] `seasons.service.ts` `update`, `remove`, `cancel` (R10: publish freed seats after
   commit through the path `EventsService.cancel` uses); remove the markers of `updateSeason`,
   `deleteSeason`, `cancelSeason`
 - [ ] T029 [US2] Event-side locks in `backend/src/events/events.service.ts` (before
   `assertLayoutFree`) and `backend/src/tiers/tiers.service.ts`, under the event lock (R9)
+- [ ] T029a [US2] *(test first)* `backend/test/integration/layouts.season-lock.e2e-spec.ts`: a
+  layout used by an on-sale Season (fixture, `sold: false`) refuses edits that add or remove levels
+  (and every other edit `039` refuses for a layout with tickets sold) with `409 LAYOUT_IN_USE`
+  naming the Season; a draft Season's layout stays editable; deleting a layout any Season uses is
+  refused
+- [ ] T029b [US2] `backend/src/layouts/layouts.service.ts` (`assertUnlocked` / `lockingEvents`,
+  about line 1341): a layout is locked while an on-sale Season uses it; delete refused while any
+  Season does (R9, review S5)
 - [ ] T030 [US2] *(test first)* Admin app: `SeasonForm.test.tsx` cases for the picker locked after a
   sale with its reason, Delete (draft only, confirmed), Cancel season with the confirmation naming
-  the passes to refund, read-only when cancelled; `EventForm` test: "In season: …" and the layout and
-  seating controls locked with that reason
+  the passes to refund, read-only when cancelled; `EventForm` test: "In season: …" and the layout
+  and seating controls locked with that reason
 - [ ] T031 [US2] `admin-app/src/pages/SeasonForm.tsx` actions and locks; `EventForm.tsx` and the
   event page read `event.season` (FR-019)
 - [ ] T032 [US2] Rust Admin app: the same in `core/src/forms/season.rs`, `core/src/forms/event.rs`
@@ -169,18 +191,20 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 
 - [ ] T033 [US3] *(test first)* `backend/test/integration/reports.seasons.e2e-spec.ts`: for the
   fixture's pass, each event's `passTicketsSold` 1 and `passRevenue` its share, totals 3 and
-  `100.00`; after `cancelSeason` all zero; `listAttendees` orders carry `seasonPass` with the Season's
-  name, single orders `null`; `listMyOrders` shows it too
+  `100.00`; after `cancelSeason` all zero; `listAttendees` orders carry `seasonPass` with the
+  Season's name, single orders `null`; `listMyOrders` shows it too
 - [ ] T034 [US3] `backend/src/reports/reports.service.ts` pass figures; the order serializer adds
   `seasonPass` (R8); make `EventSales.passTicketsSold`, `passRevenue`, the totals' two fields, and
   `Order.seasonPass` required in `contracts/openapi.yaml`
 - [ ] T035 [P] [US3] *(test first)* Admin app export row tests: sales rows gain "Pass tickets" and
   "Pass revenue" after "Revenue" (and in the total row), attendee rows gain "Pass" after "Order
-  status"; the PDF still fits letter landscape (`admin-app/src/export/attendee-rows.ts:23`)
+  status"; extend `pdf.fit.test` so both PDFs (the sales report's two new number columns, the
+  attendee list's wrapping Pass column) still fit letter landscape (R8)
 - [ ] T036 [US3] `admin-app/src/export/sales-rows.ts`, `attendee-rows.ts`, `pages/Reports.tsx` (Pass
   tickets column and the total row's pass figures), `pages/Attendees.tsx` (Pass column)
 - [ ] T037 [US3] Rust Admin app: `core/src/export/rows.rs` and `core/src/pages/attendees_reports.rs`
-  (tests first in `core/tests`), the report and attendee views
+  (tests first in `core/tests`, including the Rust PDF fit test for both tables), the report and
+  attendee views
 
 **Checkpoint**: S9 passes in both Admin apps; the six exports match the screen (SC-003).
 
@@ -203,14 +227,16 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 **Goal**: FR-023.
 **Independent test**: quickstart S0; two resets give the same Season.
 
-- [ ] T041 [US5] *(test first)* `backend/test/integration/demo-data.e2e-spec.ts` (or its existing
-  suite): after the reset, "Louisville Cardinals Basketball 2026–27" is `ON_SALE` at the KFC Yum!
+- [ ] T041 [US5] *(test first)* `backend/test/integration/demo-reset.e2e-spec.ts` and
+  `demo-data.e2e-spec.ts`: update the "Created: … 9 events" line (now 12 events and a Season) and,
+  after the reset, "Louisville Cardinals Basketball 2026–27" is `ON_SALE` at the KFC Yum!
   Center on Basketball with 3 games ("Cardinals Men vs. Miami", "vs. Virginia", "vs. Syracuse", 10,
   17 and 24 days after the run, 19:00 local), every level priced, sales ending at the first game's
   start, single tickets on sale 3 days after the run; identical on a second run
 - [ ] T042 [US5] `backend/src/scripts/demo-data.ts`: the games through `EventsService`, the Season
   through `SeasonsService` (create, publish), after `createSeatedDemo` (R13); the reset's summary
-  names the Season
+  names the Season. Update `e2e/tests/038-seat-maps.spec.ts` S0, which expects the Basketball
+  layout "used by 2 events" (now 5)
 
 ## Phase 8: Browser tests, parity, and the gates
 
@@ -218,9 +244,11 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
   reset, the Basketball Season is on sale with its three games and a price for every level`; `041
   S1: an admin creates a seated Season, prices every level and puts it on sale`; `041 S8: an event
   in a Season shows its Season and locks its layout`
-- [ ] T044 Add `/seasons`, `/seasons/new` and the demo Season's page to S11's `routes` in
-  `e2e/tests/037-rust-admin-app.spec.ts` (about line 299); both apps match at 1280 and 375 px
-  (FR-022, SC-004)
+- [ ] T044 S11 in `e2e/tests/037-rust-admin-app.spec.ts` builds its own data through the API (about
+  line 298): have its setup create and publish a Season through the API, add `/seasons`,
+  `/seasons/new` and `/seasons/<that id>` to its `routes`, and give the Seasons list the same
+  reload-until-equal handling Reports has (parallel tests add Seasons); both apps match at 1280 and
+  375 px (FR-022, SC-004)
 - [ ] T045 `specs/041-season-setup/quickstart.md`: rows S0, S1, S8 Automated with T043's exact
   titles; `node scripts/check-quickstart-marks.mjs` passes
 - [ ] T046 `README.md`: Seasons in the Admin app's feature list and "Today"; 041 in the built-and-
