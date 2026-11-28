@@ -240,18 +240,18 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 
 ## Phase 8: Browser tests, parity, and the gates
 
-- [ ] T043 *(test first)* `e2e/tests/041-season-setup.spec.ts`, tagged `@admin`: `041 S0: after the
+- [X] T043 *(test first)* `e2e/tests/041-season-setup.spec.ts`, tagged `@admin`: `041 S0: after the
   reset, the Basketball Season is on sale with its three games and a price for every level`; `041
   S1: an admin creates a seated Season, prices every level and puts it on sale`; `041 S8: an event
   in a Season shows its Season and locks its layout`
-- [ ] T044 S11 in `e2e/tests/037-rust-admin-app.spec.ts` builds its own data through the API (about
+- [X] T044 S11 in `e2e/tests/037-rust-admin-app.spec.ts` builds its own data through the API (about
   line 298): have its setup create and publish a Season through the API, add `/seasons`,
   `/seasons/new` and `/seasons/<that id>` to its `routes`, and give the Seasons list the same
   reload-until-equal handling Reports has (parallel tests add Seasons); both apps match at 1280 and
   375 px (FR-022, SC-004)
-- [ ] T045 `specs/041-season-setup/quickstart.md`: rows S0, S1, S8 Automated with T043's exact
+- [X] T045 `specs/041-season-setup/quickstart.md`: rows S0, S1, S8 Automated with T043's exact
   titles; `node scripts/check-quickstart-marks.mjs` passes
-- [ ] T046 `README.md`: Seasons in the Admin app's feature list and "Today"; 041 in the built-and-
+- [X] T046 `README.md`: Seasons in the Admin app's feature list and "Today"; 041 in the built-and-
   verified list
 - [ ] T047 Confirm no `x-planned: '041'` marker is left, every `'042'` marker is, and the route-
   coverage, contract-drift and boundary checks pass

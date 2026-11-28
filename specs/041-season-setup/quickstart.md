@@ -85,22 +85,21 @@ The `037 S11` browser check passes with the Seasons routes in its list.
 ## Automation
 
 Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
-manual. `npm test` checks this table against `e2e/tests`. Until 041's implementation adds
-`e2e/tests/041-season-setup.spec.ts`, every row is Manual; the implementation turns S0, S1 and S8
-Automated with the browser tests' exact titles (tagged `@admin`, so they also run against the Rust
-Admin app).
+manual. `npm test` checks this table against `e2e/tests`. S0, S1 and S8 are Automated by
+`e2e/tests/041-season-setup.spec.ts` (tagged `@admin`, so they also run against the Rust Admin
+app); `037 S11` compares the Seasons pages of both apps.
 
 | Scenario | Browser test |
 | --- | --- |
-| S0 | Manual: until 041's implementation adds its browser test (the implementation makes it Automated) |
-| S1 | Manual: until 041's implementation adds its browser test (the implementation makes it Automated) |
+| S0 | Automated: `041 S0: after the reset, the Basketball Season is on sale with its three games and a price for every level` |
+| S1 | Automated: `041 S1: an admin creates a seated Season, prices every level and puts it on sale` |
 | S2 | Manual: covered by the Admin app's `SeasonForm` test and the Rust core's `forms::season` tests |
 | S3 | Manual: covered by the Backend `seasons` publish test and the Admin `SeasonForm` test |
 | S4 | Manual: covered by the Backend `seasons` validation test |
 | S5 | Manual: needs a sold pass, which only the Backend fixture makes before 042; Backend `seasons` test |
 | S6 | Manual: covered by the Backend `seasons` test and the Admin `Seasons` page test |
 | S7 | Manual: covered by the Backend `seasons.cancel` test |
-| S8 | Manual: until 041's implementation adds its browser test (the implementation makes it Automated) |
+| S8 | Automated: `041 S8: an event in a Season shows its Season and locks its layout` |
 | S9 | Manual: file downloads; covered by the Admin export row tests and the Backend `reports` test |
 | S10 | Manual: covered by the Backend `events` read test |
 | S11 | Manual: the `037 S11` test itself is the check; its route list gains the Seasons routes |

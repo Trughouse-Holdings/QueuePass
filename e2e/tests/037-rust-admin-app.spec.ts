@@ -14,6 +14,7 @@ import {
   createLayout,
   createVenue,
   holdSeats,
+  seasonOnSale,
   seatAt,
   type Event,
   type LayoutDetail,
@@ -290,6 +291,34 @@ test('037 S11: every page has the same structure and arrangement in both Admin a
     endsAt: startsInHours(24 * 12 + 3),
     capacity: 100,
   });
+  // Spec 041 (T044, FR-022): a Season on sale of the seated game and a second one, so the Seasons
+  // pages have one of this test's own to show.
+  const second = await createEvent(admin.api, seated.venue, {
+    name: `${name} second game`,
+    startsAt: startsInHours(24 * 6),
+    endsAt: startsInHours(24 * 6 + 3),
+    seating: {
+      layout: seated.layout,
+      prices: {
+        Courtside: '95.00',
+        'Lower sideline': '60.00',
+        'Lower end': '35.00',
+        Upper: '20.00',
+      },
+    },
+  });
+  const season = await seasonOnSale(admin.api, seated.venue, {
+    name: `${name} season`,
+    layout: seated.layout,
+    events: [seated.event, second],
+    prices: {
+      Courtside: '180.00',
+      'Lower sideline': '110.00',
+      'Lower end': '65.00',
+      Upper: '35.00',
+    },
+    salesEndAt: new Date(seated.event.startsAt),
+  });
   const customer = await apiFor(browser, 'customer', customerFor(testInfo, 5));
   await buyTickets(customer.api, ga, { quantity: 2, holderName: 'Jordan Lee' });
   await customer.close();
@@ -310,6 +339,10 @@ test('037 S11: every page has the same structure and arrangement in both Admin a
     `/events/${ga.id}/edit`,
     `/events/${ga.id}/attendees`,
     '/reports',
+    // Spec 041 (T044): the Seasons list, a new Season, and this test's Season.
+    '/seasons',
+    '/seasons/new',
+    `/seasons/${season.id}`,
   ];
 
   for (const width of [1280, 375]) {
@@ -325,15 +358,15 @@ test('037 S11: every page has the same structure and arrangement in both Admin a
         const [reactMain, rustMain] = [await settled(react), await settled(rust)];
         const path = route.split('?')[0]!;
         // Cards that load after the page (Sales, the seat map) are waited for in both. Reports
-        // lists every event, which tests running beside this one add to: both are reloaded until
-        // they load the same events.
+        // lists every event, and Seasons every Season (spec 041), which tests running beside this
+        // one add to: both are reloaded until they load the same ones.
         await expect
           .poll(
             async () => {
               const same =
                 normalized(await rustMain.ariaSnapshot(), path) ===
                 normalized(await reactMain.ariaSnapshot(), path);
-              if (!same && path === '/reports') {
+              if (!same && (path === '/reports' || path === '/seasons')) {
                 await Promise.all([react.reload(), rust.reload()]);
                 await Promise.all([settled(react), settled(rust)]);
               }
