@@ -51,6 +51,36 @@ const addSection = (n: number, name: string, rows: string, seats: string) => {
 };
 
 describe('New venue: seated or general admission', () => {
+  it('outlines each required field with no valid value in red at once, until it has one', () => {
+    stubApi({});
+    renderNew();
+    const fields = ['Name', 'Street address', 'City', 'State', 'ZIP code', 'Time zone'];
+    for (const label of fields) expect(screen.getByLabelText(label)).toHaveClass('input--needed');
+    expect(screen.getByLabelText('Seating capacity')).toHaveClass('input--needed');
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    fillNameAndAddress();
+    for (const label of fields) {
+      expect(screen.getByLabelText(label)).not.toHaveClass('input--needed');
+    }
+    fireEvent.change(screen.getByLabelText('ZIP code'), { target: { value: '402' } });
+    expect(screen.getByLabelText('ZIP code')).toHaveClass('input--needed');
+    fireEvent.change(screen.getByLabelText('Seating capacity'), { target: { value: '500' } });
+    expect(screen.getByLabelText('Seating capacity')).not.toHaveClass('input--needed');
+
+    // Seated: an empty section name, and rows out of range, are outlined.
+    fireEvent.click(screen.getByRole('radio', { name: 'Seated' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
+    const name = screen.getByRole('textbox', { name: 'Section 1 Section name' });
+    const rows = screen.getByRole('spinbutton', { name: 'Section 1 Rows' });
+    expect(name).toHaveClass('input--needed');
+    expect(rows).not.toHaveClass('input--needed');
+    fireEvent.change(name, { target: { value: 'A' } });
+    fireEvent.change(rows, { target: { value: '101' } });
+    expect(name).not.toHaveClass('input--needed');
+    expect(rows).toHaveClass('input--needed');
+  });
+
   it('starts as general admission, asking for a capacity', () => {
     stubApi({});
     renderNew();

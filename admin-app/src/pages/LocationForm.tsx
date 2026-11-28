@@ -179,6 +179,10 @@ export function LocationForm(): React.ReactElement {
     zoneChoice === storedZone &&
     loaded.timeZoneSource !== 'ADMIN';
 
+  /** A required field with no valid value yet is outlined in red at once. */
+  const needed = (bad: boolean) => (bad ? { className: 'input--needed' } : {});
+  const wholeAtLeastOne = (s: string) => /^\d+$/.test(s.trim()) && Number(s) >= 1;
+
   async function save(): Promise<void> {
     setError(null);
     setLayoutRefused(null);
@@ -326,6 +330,7 @@ export function LocationForm(): React.ReactElement {
               value={name}
               placeholder="KFC Yum! Center"
               onChange={(e) => setName(e.target.value)}
+              {...needed(!name.trim())}
             />
           </div>
 
@@ -346,6 +351,7 @@ export function LocationForm(): React.ReactElement {
               value={address.street}
               placeholder="430 W Vine St"
               onChange={(e) => changeAddress('street', e.target.value)}
+              {...needed(sendAddress && !address.street.trim())}
             />
           </div>
 
@@ -357,6 +363,7 @@ export function LocationForm(): React.ReactElement {
               value={address.city}
               placeholder="Lexington"
               onChange={(e) => changeAddress('city', e.target.value)}
+              {...needed(sendAddress && !address.city.trim())}
             />
           </div>
 
@@ -367,6 +374,7 @@ export function LocationForm(): React.ReactElement {
               autoComplete="address-level1"
               value={address.state}
               onChange={(e) => changeAddress('state', e.target.value)}
+              {...needed(sendAddress && !address.state)}
             >
               <option value="">Choose a state</option>
               {US_STATES.map((s) => (
@@ -386,6 +394,7 @@ export function LocationForm(): React.ReactElement {
               value={address.zip}
               placeholder="40507"
               onChange={(e) => changeAddress('zip', e.target.value)}
+              {...needed(sendAddress && !ZIP_PATTERN.test(address.zip.trim()))}
             />
           </div>
 
@@ -396,6 +405,7 @@ export function LocationForm(): React.ReactElement {
               id="timeZone"
               value={zoneChoice}
               aria-invalid={zoneProblem ? true : undefined}
+              {...needed(!isEdit && !zoneChoice)}
               aria-describedby={zoneHints.map((h) => h.id).join(' ') || undefined}
               onChange={(e) => {
                 setZoneChoice(e.target.value as UsTimeZone | '');
@@ -482,6 +492,7 @@ export function LocationForm(): React.ReactElement {
                 value={seatingCapacity}
                 placeholder="22090"
                 onChange={(e) => setSeatingCapacity(e.target.value)}
+                {...needed(!wholeAtLeastOne(seatingCapacity))}
               />
               <span className="field__hint">
                 An event scheduled here cannot sell more tickets than this. A seating layout, once

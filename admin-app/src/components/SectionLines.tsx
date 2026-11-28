@@ -1,5 +1,10 @@
 import { useId } from 'react';
-import { LEVEL_COLORS, type LayoutLinesInput, type LevelColor } from '@queuepass/shared';
+import {
+  LAYOUT_LIMITS,
+  LEVEL_COLORS,
+  type LayoutLinesInput,
+  type LevelColor,
+} from '@queuepass/shared';
 
 /** Spec 038 FR-005: a price level being edited: its name and one of the theme's 12 colors. */
 export type LevelLine = { name: string; color: LevelColor };
@@ -35,6 +40,11 @@ export const toLinesInput = (
     level: l.level.trim(),
   })),
 });
+
+/** A required box with no valid value yet is outlined in red at once. */
+const needed = (bad: boolean) => (bad ? { className: 'input--needed' } : {});
+const wholeIn = (s: string, max: number) =>
+  /^\d+$/.test(s.trim()) && Number(s) >= 1 && Number(s) <= max;
 
 /** A line's seats as typed; a line that is not a number yet counts as 0. */
 const lineSeats = (l: SectionLine): number => (Number(l.rows) || 0) * (Number(l.seatsPerRow) || 0);
@@ -100,6 +110,7 @@ export function SectionLines({
                 aria-labelledby={label('name-label')}
                 value={l.name}
                 onChange={(e) => editLevel(i, { name: e.target.value })}
+                {...needed(!l.name.trim())}
               />
             </div>
             <div className="field">
@@ -159,6 +170,7 @@ export function SectionLines({
                 aria-labelledby={label('name-label')}
                 value={l.name}
                 onChange={(e) => edit(i, { name: e.target.value })}
+                {...needed(!l.name.trim())}
               />
             </div>
             <div className="field">
@@ -173,6 +185,7 @@ export function SectionLines({
                 aria-labelledby={label('rows-label')}
                 value={l.rows}
                 onChange={(e) => edit(i, { rows: e.target.value })}
+                {...needed(!wholeIn(l.rows, LAYOUT_LIMITS.maxRows))}
               />
             </div>
             <span className="section-line__times" aria-hidden="true">
@@ -190,6 +203,7 @@ export function SectionLines({
                 aria-labelledby={label('seats-label')}
                 value={l.seatsPerRow}
                 onChange={(e) => edit(i, { seatsPerRow: e.target.value })}
+                {...needed(!wholeIn(l.seatsPerRow, LAYOUT_LIMITS.maxSeatsPerRow))}
               />
             </div>
             <div className="field section-line__level">
@@ -201,6 +215,7 @@ export function SectionLines({
                 aria-labelledby={label('level-label')}
                 value={l.level}
                 onChange={(e) => edit(i, { level: e.target.value })}
+                {...needed(!named.includes(l.level))}
               >
                 {!named.includes(l.level) && <option value={l.level}>Choose a level</option>}
                 {named.map((n) => (

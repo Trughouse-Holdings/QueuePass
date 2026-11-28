@@ -82,13 +82,15 @@ describe('Schedule a seated event', () => {
       .getAllByRole('option')
       .map((o) => o.textContent);
     expect(options).toEqual(['General admission', 'Arena (70 seats)', 'Club (12 seats)']);
-    expect(seatingSelect()).toHaveValue('');
-    // General admission keeps its ticket types and total.
-    expect(screen.getByLabelText('Ticket type 1 quantity')).toBeInTheDocument();
-
+    // A new event starts on the venue's first layout.
+    expect(seatingSelect()).toHaveValue('l-arena');
     await chooseLayout('Arena');
     expect(screen.queryByLabelText('Ticket type 1 name')).toBeNull();
     expect(screen.queryByLabelText('Total tickets')).toBeNull();
+
+    // General admission keeps its ticket types and total.
+    fireEvent.change(seatingSelect(), { target: { value: '' } });
+    expect(screen.getByLabelText('Ticket type 1 quantity')).toBeInTheDocument();
   });
 
   it('shows each level with its color, seats on sale and a price box started from the latest prices', async () => {

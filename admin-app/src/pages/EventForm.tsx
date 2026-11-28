@@ -187,6 +187,9 @@ const noAnswerFrom = (err: unknown): boolean =>
   !(err instanceof ApiError) || (err.status >= 500 && !err.enveloped);
 
 /** FR-032, FR-033, FR-034, FR-035 — create/edit an event. No removal control (API-only). */
+/** A ticket type's three boxes, named in the "Required" line under them. */
+const TYPE_BOXES = ['name', 'price', 'quantity'] as const;
+
 export function EventForm(): React.ReactElement {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -280,12 +283,19 @@ export function EventForm(): React.ReactElement {
   }, []);
 
   // Spec 038 (FR-010): the venue's layouts to choose from; a venue without any is general admission.
+  // A new event starts on the venue's first layout that has seats (the list is by name); the
+  // admin can still choose General admission. An edit keeps the event's own seating.
   useEffect(() => {
     setLayoutsReady(false);
     if (!locationId) return;
     let cancelled = false;
     listVenueLayouts(locationId)
-      .then((list) => !cancelled && setVenueLayouts(list))
+      .then((list) => {
+        if (cancelled) return;
+        setVenueLayouts(list);
+        const first = list.find((l) => l.seatCount > 0);
+        if (!isEdit && first) chooseLayout(first.id);
+      })
       .catch(() => !cancelled && setVenueLayouts([]))
       .finally(() => !cancelled && setLayoutsReady(true));
     return () => {
@@ -1054,8 +1064,15 @@ export function EventForm(): React.ReactElement {
   };
   const fieldHint = (key: string): string[] =>
     placed.fields.get(key) ?? (preview.get(key) ? [preview.get(key)!] : []);
-  const fieldProps = (key: string, testId = `${key}-error`) =>
-    fieldHint(key).length > 0 ? { 'aria-invalid': true as const, 'aria-describedby': testId } : {};
+  /** A required field with no valid value yet is outlined in red at once; its message waits (R5). */
+  const needed = (key: string): boolean => previewAll.has(key);
+  const neededClass = (key: string) => (needed(key) ? { className: 'input--needed' } : {});
+  const fieldProps = (key: string, testId = `${key}-error`) => ({
+    ...neededClass(key),
+    ...(fieldHint(key).length > 0
+      ? { 'aria-invalid': true as const, 'aria-describedby': testId }
+      : {}),
+  });
 
   const timeChromeMessages = (): Set<string> => {
     const msgs = new Set<string>();
@@ -1109,6 +1126,7 @@ export function EventForm(): React.ReactElement {
   /** Spec 008 US7: a general-admission event's ticket types, each with a quantity. */
   const typeControl = (i: number, field: 'name' | 'price' | 'quantity') => ({
     id: `type-${i + 1}-${field}`,
+    ...neededClass(`tiers.${i}.${field}`),
     ...(typeInvalid(i, field)
       ? { 'aria-invalid': true as const, 'aria-describedby': `type-${i + 1}-error` }
       : {}),
@@ -1165,6 +1183,15 @@ export function EventForm(): React.ReactElement {
               </button>
             )}
           </div>
+          {TYPE_BOXES.some((f) => needed(`tiers.${i}.${f}`)) && (
+            <span
+              className="required-tag"
+              aria-hidden="true"
+              data-testid={`type-${i + 1}-required`}
+            >
+              {`Required: ${TYPE_BOXES.filter((f) => needed(`tiers.${i}.${f}`)).join(', ')}`}
+            </span>
+          )}
           {soldFor(t) > 0 && <span className="field__hint">{lockReason.quantity(soldFor(t))}</span>}
           {hint(`type-${i + 1}-error`, typeHint(i))}
         </Fragment>
@@ -1427,6 +1454,8 @@ export function EventForm(): React.ReactElement {
                   pricesFrom={pricesFrom}
                   onLayout={(layoutId) => {
                     clearServer();
+                    // The layout already chosen (a new event starts on one) keeps its prices.
+                    if (layoutId === seating.layoutId) return;
                     chooseLayout(layoutId);
                   }}
                   onPrice={(levelId, price) => {
@@ -1440,6 +1469,7 @@ export function EventForm(): React.ReactElement {
                   onOpenSection={loadSection}
                   onBlur={mark}
                   hints={fieldHint}
+                  needed={needed}
                 />
               )}
               {seated ? (

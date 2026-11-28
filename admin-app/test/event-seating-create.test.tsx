@@ -58,15 +58,18 @@ const chooseClub = async () => {
 };
 
 describe('Schedule event at a venue with layouts', () => {
-  it('starts on general admission, with ticket types and a total, and offers each layout', async () => {
+  it("starts on the venue's first layout, and general admission still has ticket types and a total", async () => {
     stubApi(baseRoutes());
     renderNew();
     await fillBasics(VENUE.id);
 
     const region = await screen.findByRole('group', { name: 'Tickets and seating' });
     const seating = await within(region).findByRole('combobox', { name: 'Seating' });
-    expect(seating).toHaveValue('');
+    await vi.waitFor(() => expect(seating).toHaveValue('l-arena'));
     expect(within(region).getByRole('option', { name: 'Club (12 seats)' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Total tickets')).toBeNull();
+
+    fireEvent.change(seating, { target: { value: '' } });
     expect(screen.getByLabelText('Total tickets')).toBeInTheDocument();
     expect(screen.getByLabelText('Ticket type 1 quantity')).toBeInTheDocument();
   });
