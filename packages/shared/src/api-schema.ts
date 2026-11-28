@@ -2410,9 +2410,9 @@ export interface components {
             tickets: components["schemas"]["Ticket"][];
             /**
              * @description Feature 041. The Season pass this order was bought on; `null` for a single-ticket
-             *     order. Always sent once 041 is implemented; clients treat a missing value as `null`.
+             *     order. Required from 2.2.0 once implemented (feature 041's implementation).
              */
-            seasonPass?: components["schemas"]["OrderSeasonPass"] | null;
+            seasonPass: components["schemas"]["OrderSeasonPass"] | null;
         };
         OrderInput: {
             /**
@@ -3237,14 +3237,15 @@ export interface components {
             levels: components["schemas"]["LevelSales"][];
             /**
              * @description Feature 041. Of `ticketsSold`, the valid tickets of orders bought on a Season pass.
-             *     Always sent once 041 is implemented; clients treat a missing value as 0.
+             *     Required from 2.2.0 once implemented (feature 041's implementation).
              */
-            passTicketsSold?: number;
+            passTicketsSold: number;
             /**
              * @description Feature 041. Of `revenue`, the confirmed orders bought on a Season pass (each its share
-             *     of the pass price). Always sent once 041 is implemented; a missing value is '0.00'.
+             *     of the pass price). Required from 2.2.0 once implemented (feature 041's
+             *     implementation).
              */
-            passRevenue?: string;
+            passRevenue: string;
         };
         SalesReport: {
             /** Format: date-time */
@@ -3259,9 +3260,9 @@ export interface components {
                 /** @example 45.00 */
                 revenue: string;
                 /** @description Feature 041. As `EventSales.passTicketsSold`, over all events. */
-                passTicketsSold?: number;
+                passTicketsSold: number;
                 /** @description Feature 041. As `EventSales.passRevenue`, over all events. */
-                passRevenue?: string;
+                passRevenue: string;
             };
             events: components["schemas"]["EventSales"][];
         };

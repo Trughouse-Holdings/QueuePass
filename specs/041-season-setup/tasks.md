@@ -189,11 +189,11 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 **Goal**: FR-020, FR-021.
 **Independent test**: quickstart S9 with the fixture's sold pass.
 
-- [ ] T033 [US3] *(test first)* `backend/test/integration/reports.seasons.e2e-spec.ts`: for the
+- [X] T033 [US3] *(test first)* `backend/test/integration/reports.seasons.e2e-spec.ts`: for the
   fixture's pass, each event's `passTicketsSold` 1 and `passRevenue` its share, totals 3 and
   `100.00`; after `cancelSeason` all zero; `listAttendees` orders carry `seasonPass` with the
   Season's name, single orders `null`; `listMyOrders` shows it too
-- [ ] T034 [US3] `backend/src/reports/reports.service.ts` pass figures; the order serializer adds
+- [X] T034 [US3] `backend/src/reports/reports.service.ts` pass figures; the order serializer adds
   `seasonPass` (R8); make `EventSales.passTicketsSold`, `passRevenue`, the totals' two fields, and
   `Order.seasonPass` required in `contracts/openapi.yaml`
 - [ ] T035 [P] [US3] *(test first)* Admin app export row tests: sales rows gain "Pass tickets" and

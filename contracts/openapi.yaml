@@ -3367,6 +3367,7 @@ components:
           createdAt,
           refundedAt,
           tickets,
+          seasonPass,
         ]
       properties:
         id: { type: string, format: uuid }
@@ -3406,7 +3407,7 @@ components:
             - type: 'null'
           description: |
             Feature 041. The Season pass this order was bought on; `null` for a single-ticket
-            order. Always sent once 041 is implemented; clients treat a missing value as `null`.
+            order. Required from 2.2.0 once implemented (feature 041's implementation).
 
     OrderInput:
       type: object
@@ -4500,6 +4501,8 @@ components:
           revenue,
           tiers,
           levels,
+          passTicketsSold,
+          passRevenue,
         ]
       properties:
         eventId: { type: string, format: uuid }
@@ -4542,13 +4545,14 @@ components:
           minimum: 0
           description: |
             Feature 041. Of `ticketsSold`, the valid tickets of orders bought on a Season pass.
-            Always sent once 041 is implemented; clients treat a missing value as 0.
+            Required from 2.2.0 once implemented (feature 041's implementation).
         passRevenue:
           type: string
           pattern: '^\d+\.\d{2}$'
           description: |
             Feature 041. Of `revenue`, the confirmed orders bought on a Season pass (each its share
-            of the pass price). Always sent once 041 is implemented; a missing value is '0.00'.
+            of the pass price). Required from 2.2.0 once implemented (feature 041's
+            implementation).
 
     SalesReport:
       type: object
@@ -4557,7 +4561,8 @@ components:
         generatedAt: { type: string, format: date-time }
         totals:
           type: object
-          required: [events, ticketCapacity, ticketsSold, checkedIn, revenue]
+          required:
+            [events, ticketCapacity, ticketsSold, checkedIn, revenue, passTicketsSold, passRevenue]
           properties:
             events: { type: integer, minimum: 0, description: Scheduled events. }
             ticketCapacity:
