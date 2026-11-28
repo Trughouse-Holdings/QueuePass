@@ -6,6 +6,8 @@ import { conflict } from '../common/conflict';
 import { LOCKING_TX } from '../common/event-lock';
 import { checkEventTime } from '../events/event-time';
 import { PrismaService } from '../prisma/prisma.service';
+import { closeHolds, fromHeld } from '../reservations/holds';
+import { sequence, toChanges, type SeatChanges, type SeatMove } from '../seating/seat-changes';
 import { SeatEventsService } from '../seating/seat-events.service';
 import { SeasonInputDto } from './dto/season-input.dto';
 import { lockSeasonWrite, SeasonVenueMoved, type LockedSeason } from './season-lock';
@@ -30,6 +32,18 @@ const isAdmin = (caller: Principal): boolean => caller.roles.includes(ADMIN_ROLE
 const VENUE_ATTEMPTS = 3;
 
 /** A 400 naming every problem, each starting with its field path (R4). */
+/** R4: any write to a cancelled Season. */
+const seasonCancelled = (season: LockedSeason) =>
+  conflict('SEASON_CANCELLED', `${season.name} is cancelled and can no longer be changed.`);
+
+/** contracts/openapi.yaml `SeasonCancellation`. */
+export interface SeasonCancellation {
+  season: SeasonResponse;
+  passesRefunded: number;
+  ordersRefunded: number;
+  ticketsVoided: number;
+}
+
 const refuse = (problems: string[]): BadRequestException =>
   new BadRequestException({ message: problems });
 
@@ -128,6 +142,175 @@ export class SeasonsService {
       });
       return this.respond(tx, id);
     });
+  }
+
+  /**
+   * R3: replaces the Season's fields, events and prices, all or nothing. Once a pass is active,
+   * its events, venue and layout are fixed (FR-005): the Season row's `FOR UPDATE` lock waits for
+   * a pass being sold under its `FOR SHARE` lock, or the sale waits for this save (R2). A Season
+   * on sale keeps the rules that keep it sellable (review S2); a cancelled one is read-only.
+   */
+  async update(id: string, dto: SeasonInputDto): Promise<SeasonResponse> {
+    try {
+      return await this.underSeasonLock(
+        id,
+        async (tx, season, zone) => {
+          if (season.status === 'CANCELLED') throw seasonCancelled(season);
+          const stored = await tx.seasonEvent.findMany({
+            where: { seasonId: id },
+            select: { eventId: true },
+          });
+          const storedIds = stored.map((e) => e.eventId);
+          const passesSold = await tx.seasonPass.count({
+            where: { seasonId: id, status: 'ACTIVE' },
+          });
+          if (passesSold > 0) {
+            const same = (a: string[], b: string[]) =>
+              a.length === b.length && [...a].sort().every((x, i) => x === [...b].sort()[i]);
+            const changed = !same(storedIds, dto.eventIds)
+              ? 'eventIds'
+              : dto.locationId !== season.locationId
+                ? 'locationId'
+                : dto.layoutId !== season.layoutId
+                  ? 'layoutId'
+                  : null;
+            if (changed) {
+              throw conflict(
+                'SEASON_HAS_PASSES',
+                `Passes have been sold for ${season.name}, so its events, venue and layout can't ` +
+                  'change.',
+                { field: changed, passesSold },
+              );
+            }
+          }
+          const plan = await this.plan(tx, dto, {
+            zone,
+            season,
+            alreadyIn: new Set(storedIds),
+            complete: season.status === 'ON_SALE',
+          });
+          await tx.seasonEvent.deleteMany({ where: { seasonId: id } });
+          await tx.seasonPrice.deleteMany({ where: { seasonId: id } });
+          await tx.season.update({
+            where: { id },
+            data: { ...this.columns(plan.rules), ...this.children(plan.rules) },
+          });
+          return this.respond(tx, id);
+        },
+        { locationId: dto.locationId, eventIds: dto.eventIds },
+      );
+    } catch (err) {
+      throw await this.namedEventConflict(err, dto.eventIds, id);
+    }
+  }
+
+  /** FR-008: a draft with no passes is deleted with its event list and prices. */
+  async remove(id: string): Promise<void> {
+    await this.underSeasonLock(id, async (tx, season) => {
+      if (season.status !== 'DRAFT') {
+        throw conflict(
+          'SEASON_NOT_DRAFT',
+          `${season.name} is not a draft, so it can't be deleted.` +
+            (season.status === 'ON_SALE' ? ' Cancel it instead.' : ''),
+          { status: season.status },
+        );
+      }
+      const passesSold = await tx.seasonPass.count({ where: { seasonId: id, status: 'ACTIVE' } });
+      if (passesSold > 0) {
+        throw conflict('SEASON_HAS_PASSES', `Passes have been sold for ${season.name}.`, {
+          field: 'id',
+          passesSold,
+        });
+      }
+      await tx.season.delete({ where: { id } });
+    });
+  }
+
+  /**
+   * FR-014 (research R10): in one transaction under R2's locks, every live pass hold ends with its
+   * reservations (`CLOSED`, no 2-minute wait), every confirmed pass order is refunded and its
+   * valid tickets voided (games already played and tickets used included, review M7), every
+   * active pass refunded, and the Season cancelled. Its events stay scheduled. After the commit
+   * the freed seats go to live seat maps as `EventsService.cancel` sends them.
+   */
+  async cancel(id: string): Promise<SeasonCancellation> {
+    const { result, published } = await this.underSeasonLock(id, async (tx, season) => {
+      if (season.status === 'DRAFT') {
+        throw conflict(
+          'SEASON_NOT_ON_SALE',
+          `${season.name} is a draft, so it can't be cancelled; delete it instead.`,
+          { status: season.status },
+        );
+      }
+      if (season.status === 'CANCELLED') throw seasonCancelled(season);
+      const now = await databaseNow(tx);
+
+      const holds = await tx.seasonPassHold.findMany({
+        where: { seasonId: id, endedAt: null },
+        select: { id: true, reservations: { select: { id: true } } },
+      });
+      const holdReservations = new Set(holds.flatMap((h) => h.reservations.map((r) => r.id)));
+      const events = await tx.seasonEvent.findMany({
+        where: { seasonId: id },
+        select: { event: { select: { id: true, layoutId: true } } },
+        orderBy: { eventId: 'asc' },
+      });
+      const freed = new Map<string, SeatMove[]>();
+      for (const { event } of events) {
+        const held = await closeHolds(tx, event.id, (h) => holdReservations.has(h.reservationId));
+        freed.set(event.id, fromHeld(held));
+      }
+      if (holds.length > 0) {
+        const ids = holds.map((h) => h.id);
+        await tx.$executeRaw`
+          UPDATE "SeatReservation" SET "endedAt" = greatest(now(), "createdAt")
+          WHERE "passHoldId" = ANY(${ids}::uuid[]) AND "endedAt" IS NULL`;
+        await tx.$executeRaw`
+          UPDATE "SeasonPassHold" SET "endedAt" = greatest(now(), "createdAt")
+          WHERE "id" = ANY(${ids}::uuid[]) AND "endedAt" IS NULL`;
+      }
+
+      const passOrders = { status: 'CONFIRMED' as const, seasonPass: { seasonId: id } };
+      const sold = await tx.ticket.findMany({
+        where: { status: 'VALID', seatId: { not: null }, order: passOrders },
+        select: { eventId: true, seatId: true },
+      });
+      for (const t of sold) freed.get(t.eventId)?.push({ seatId: t.seatId, from: 'sold' });
+      const tickets = await tx.ticket.updateMany({
+        where: { status: 'VALID', order: passOrders },
+        data: { status: 'VOID' },
+      });
+      const orders = await tx.order.updateMany({
+        where: passOrders,
+        data: { status: 'REFUNDED', refundedAt: now },
+      });
+      const passes = await tx.seasonPass.updateMany({
+        where: { seasonId: id, status: 'ACTIVE' },
+        data: { status: 'REFUNDED', refundedAt: now },
+      });
+      await tx.season.update({
+        where: { id },
+        data: { status: 'CANCELLED', cancelledAt: now },
+      });
+
+      const published: { eventId: string; changes: SeatChanges }[] = [];
+      for (const { event } of events) {
+        const moves = freed.get(event.id) ?? [];
+        const changes = await toChanges(tx, event.layoutId, moves, 'open');
+        published.push({ eventId: event.id, changes: await sequence(tx, event.id, changes) });
+      }
+      return {
+        result: {
+          season: await this.respond(tx, id),
+          passesRefunded: passes.count,
+          ordersRefunded: orders.count,
+          ticketsVoided: tickets.count,
+        },
+        published,
+      };
+    });
+    for (const p of published) this.seatEvents.publish(p.eventId, p.changes);
+    return result;
   }
 
   // ---------------------------------------------------------------- helpers
@@ -229,10 +412,17 @@ export class SeasonsService {
       }
     }
     const facts = await this.facts(tx, rules, { alreadyIn: opts.alreadyIn });
+    const refusedEvents = eventProblems(rules, facts.ctx);
+    // The sales end is compared with the events the Season can keep, not one already refused.
+    const refusedAt = new Set(refusedEvents.map((p) => p.split(' ')[0]));
+    const kept = rules.eventIds
+      .filter((_, i) => !refusedAt.has(`eventIds.${i}`))
+      .map((id) => facts.ctx.events.get(id))
+      .filter((e): e is SeasonRuleEvent => e !== undefined);
     problems.push(
       ...fieldProblems(rules),
-      ...eventProblems(rules, facts.ctx),
-      ...timeProblems(rules, facts.events, opts.zone),
+      ...refusedEvents,
+      ...timeProblems(rules, kept, opts.zone),
       ...priceProblems(rules, facts.ctx, { complete: opts.complete }),
     );
     if (problems.length > 0) throw refuse(problems);

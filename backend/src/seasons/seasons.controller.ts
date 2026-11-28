@@ -1,18 +1,20 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
 } from '@nestjs/common';
 import { CurrentPrincipal, type Principal } from '../auth/principal';
 import { Roles } from '../auth/roles.decorator';
 import { SeasonInputDto } from './dto/season-input.dto';
 import type { SeasonResponse } from './season-view';
-import { SeasonsService } from './seasons.service';
+import { SeasonsService, type SeasonCancellation } from './seasons.service';
 
 /**
  * Implements the Season operations of contracts/openapi.yaml that feature 041 serves (research
@@ -47,5 +49,28 @@ export class SeasonsController {
   @HttpCode(HttpStatus.OK)
   publish(@Param('id', ParseUUIDPipe) id: string): Promise<SeasonResponse> {
     return this.seasons.publish(id);
+  }
+
+  @Put(':id')
+  @Roles('queuepass-admin')
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SeasonInputDto,
+  ): Promise<SeasonResponse> {
+    return this.seasons.update(id, dto);
+  }
+
+  @Delete(':id')
+  @Roles('queuepass-admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.seasons.remove(id);
+  }
+
+  @Post(':id/cancel')
+  @Roles('queuepass-admin')
+  @HttpCode(HttpStatus.OK)
+  cancel(@Param('id', ParseUUIDPipe) id: string): Promise<SeasonCancellation> {
+    return this.seasons.cancel(id);
   }
 }

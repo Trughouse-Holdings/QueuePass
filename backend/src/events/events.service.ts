@@ -35,6 +35,13 @@ import {
   writeSeating,
 } from '../seating/event-seating';
 import { SeatEventsService } from '../seating/seat-events.service';
+import {
+  holdsEvent,
+  inSeason,
+  missingPricedNames,
+  seasonOfEvent,
+  startBeforeSalesEnd,
+} from '../seasons/event-season';
 import { CreateEventDto } from './dto/create-event.dto';
 import { ListEventsQuery } from './dto/list-events.query';
 import { UpdateEventDto } from './dto/update-event.dto';
@@ -351,6 +358,26 @@ export class EventsService {
     if (locked.locationId !== venueBefore) throw new VenueMoved();
     if (locked.status === 'CANCELLED') throw eventCancelled(locked.name);
     const existing = await tx.event.findUniqueOrThrow({ where: { id } });
+    // Spec 041 FR-007 (research R9, review S4): an event in a Season not cancelled keeps its venue
+    // and its layout (and so its seating kind), checked before `assertLayoutFree`, so the Season
+    // is named even when seats are sold. Read under this event's lock (R2).
+    const season = await seasonOfEvent(tx, id);
+    if (holdsEvent(season)) {
+      if (dto.locationId !== undefined && dto.locationId !== existing.locationId) {
+        throw inSeason(
+          season,
+          'locationId',
+          `${existing.name} is in ${season.name}, so it can’t move to another venue.`,
+        );
+      }
+      if (dto.layoutId !== undefined && dto.layoutId !== existing.layoutId) {
+        throw inSeason(
+          season,
+          'layoutId',
+          `${existing.name} is in ${season.name}, so its layout and seating can’t change.`,
+        );
+      }
+    }
 
     // The conflict check runs against the DESTINATION venue and DESTINATION window —
     // an edit that only moves the venue must be checked where it is going, not where it was.
@@ -381,6 +408,10 @@ export class EventsService {
     const endsAt = dto.endsAt
       ? checkEventTime('endsAt', dto.endsAt, zone, location.name)
       : existing.endsAt;
+    // Spec 041 FR-007: pass sales never run past the first game's start.
+    if (holdsEvent(season) && startsAt < season.salesEndAt) {
+      throw startBeforeSalesEnd(season, existing.name, zone);
+    }
     // Spec 025 FR-008 (research R4): doors sent are checked against the start in force after the
     // update; else a start that moves takes its doors with it, keeping the gap, so a doors-open
     // time never falls out of range for a field the caller did not send; else unchanged.
@@ -435,6 +466,22 @@ export class EventsService {
         : null;
     // Spec 035: the request carries the ticket types when it sends them. Spec 038 (FR-012): a
     // seated event has none, so an event put on a layout loses its types, by `tiers`' own rules.
+    // Spec 041 FR-007 (R9): a general-admission event keeps a ticket type of each name its Season
+    // prices, ignoring case; the others may change.
+    if (holdsEvent(season) && dto.tiers !== undefined) {
+      const missing = missingPricedNames(
+        season,
+        dto.tiers.map((t) => t.name),
+      );
+      if (missing.length > 0) {
+        throw inSeason(
+          season,
+          'tiers',
+          `${existing.name} is in ${season.name}, which sells passes for ${missing.join(', ')}; ` +
+            'keep a ticket type of that name.',
+        );
+      }
+    }
     const tiers =
       dto.tiers ??
       (layoutId !== null && (await tx.ticketTier.count({ where: { eventId: id } })) > 0
@@ -542,6 +589,16 @@ export class EventsService {
     // with it (ON DELETE CASCADE).
     await this.prisma.$transaction(async (tx) => {
       const existing = await lockEvent(tx, id);
+      // Spec 041 FR-007 (R9, review S1): an event in any Season, a cancelled one included, stays
+      // on the Season's record; the RESTRICT key on SeasonEvent holds below this.
+      const season = await seasonOfEvent(tx, id);
+      if (season) {
+        throw inSeason(
+          season,
+          'id',
+          `Cannot delete "${existing.name}": it is in ${season.name}. Cancel it instead.`,
+        );
+      }
 
       // Spec 005 FR-010. The count only names the refusal; Order.eventId is ON DELETE RESTRICT,
       // so the database refuses even if an order lands between this check and the delete.

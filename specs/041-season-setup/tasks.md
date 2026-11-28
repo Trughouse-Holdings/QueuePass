@@ -139,38 +139,38 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 **Goal**: FR-005, FR-007, FR-008, FR-011, FR-014, FR-015, FR-019.
 **Independent test**: quickstart S5–S8 with the fixture's sold pass.
 
-- [ ] T024 [US2] *(test first)* `backend/test/integration/seasons.update.e2e-spec.ts`:
+- [X] T024 [US2] *(test first)* `backend/test/integration/seasons.update.e2e-spec.ts`:
   `updateSeason` replaces fields, events and prices; with the fixture's pass, changing events, venue
   or layout is `409 SEASON_HAS_PASSES` (`details.field`, `passesSold`), a price change saves and the
   sold orders keep `33.34/33.33/33.33`; a save of a Season on sale keeps its pricing and event rules
   but succeeds after its sales end has passed and with one of two events cancelled (R3); a cancelled
   one is `409 SEASON_CANCELLED`; a customer token reads `passesSold`/`passRevenue` as `null`;
   `deleteSeason` of a draft frees its events, of one on sale is `409 SEASON_NOT_DRAFT`
-- [ ] T025 [US2] *(test first)* in the same file: an `updateSeason` removing an event racing a pass
+- [X] T025 [US2] *(test first)* in the same file: an `updateSeason` removing an event racing a pass
   row inserted under the Season `FOR SHARE` lock (as 042 will): the update is either refused as
   `SEASON_HAS_PASSES` or completes before the insert, never both (FR-005, R2, SC-002)
-- [ ] T026 [US2] *(test first)* `backend/test/integration/seasons.cancel.e2e-spec.ts`:
+- [X] T026 [US2] *(test first)* `backend/test/integration/seasons.cancel.e2e-spec.ts`:
   `cancelSeason` refunds every pass order, voids its tickets, sets the pass `REFUNDED` with
   `refundedAt`, ends live pass holds (rows written directly) with `endReason CLOSED`, sets the
   Season `CANCELLED`, leaves the events `SCHEDULED`, returns the counts; a failure part way leaves
   nothing changed; a draft is `409 SEASON_NOT_ON_SALE` (FR-014, SC-006)
-- [ ] T027 [US2] *(test first)* `backend/test/integration/events.season-lock.e2e-spec.ts`: for an
+- [X] T027 [US2] *(test first)* `backend/test/integration/events.season-lock.e2e-spec.ts`: for an
   event in the fixture's Season, `updateEvent` changing `locationId`, `layoutId` or
   `reservedSeating`, or moving `startsAt` before `salesEndAt`, and (general-admission fixture)
   renaming (case-insensitive match) or deleting the priced ticket type are `409 EVENT_IN_SEASON`
   naming the Season; `deleteEvent` is refused for an event of a cancelled Season too; `cancelEvent`
   refunds the pass order like any order and the pass stays `ACTIVE` (FR-007, FR-015, R9)
-- [ ] T028 [US2] `seasons.service.ts` `update`, `remove`, `cancel` (R10: publish freed seats after
+- [X] T028 [US2] `seasons.service.ts` `update`, `remove`, `cancel` (R10: publish freed seats after
   commit through the path `EventsService.cancel` uses); remove the markers of `updateSeason`,
   `deleteSeason`, `cancelSeason`
-- [ ] T029 [US2] Event-side locks in `backend/src/events/events.service.ts` (before
+- [X] T029 [US2] Event-side locks in `backend/src/events/events.service.ts` (before
   `assertLayoutFree`) and `backend/src/tiers/tiers.service.ts`, under the event lock (R9)
-- [ ] T029a [US2] *(test first)* `backend/test/integration/layouts.season-lock.e2e-spec.ts`: a
+- [X] T029a [US2] *(test first)* `backend/test/integration/layouts.season-lock.e2e-spec.ts`: a
   layout used by an on-sale Season (fixture, `sold: false`) refuses edits that add or remove levels
   (and every other edit `039` refuses for a layout with tickets sold) with `409 LAYOUT_IN_USE`
   naming the Season; a draft Season's layout stays editable; deleting a layout any Season uses is
   refused
-- [ ] T029b [US2] `backend/src/layouts/layouts.service.ts` (`assertUnlocked` / `lockingEvents`,
+- [X] T029b [US2] `backend/src/layouts/layouts.service.ts` (`assertUnlocked` / `lockingEvents`,
   about line 1341): a layout is locked while an on-sale Season uses it; delete refused while any
   Season does (R9, review S5)
 - [ ] T030 [US2] *(test first)* Admin app: `SeasonForm.test.tsx` cases for the picker locked after a

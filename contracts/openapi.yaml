@@ -2240,7 +2240,6 @@ paths:
         repriced. Prices may change at any time; passes, orders and tickets already sold keep their
         prices.
       operationId: updateSeason
-      x-planned: '041'
       x-required-roles: [queuepass-admin]
       requestBody:
         required: true
@@ -2265,7 +2264,6 @@ paths:
         Feature 041. Deletes a draft with its event list and prices; its events can then join
         another Season. Refused `409 SEASON_NOT_DRAFT` for a Season on sale or cancelled.
       operationId: deleteSeason
-      x-planned: '041'
       x-required-roles: [queuepass-admin]
       responses:
         '204': { description: Deleted. }
@@ -2327,7 +2325,6 @@ paths:
         presale. Refused `409 SEASON_NOT_ON_SALE` for a draft (delete it instead) and `409
         SEASON_CANCELLED` for a cancelled Season.
       operationId: cancelSeason
-      x-planned: '041'
       x-required-roles: [queuepass-admin]
       responses:
         '200':
