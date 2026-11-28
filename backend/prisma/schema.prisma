@@ -36,6 +36,8 @@ model Location {
   // was set. Both have no default: the Backend always decides (FR-008).
   timeZone       String         @db.VarChar(40)
   timeZoneSource TimeZoneSource
+  // Spec 041: the Seasons sold at this venue.
+  seasons        Season[]
 }
 
 enum TimeZoneSource {
@@ -93,6 +95,8 @@ model Event {
   // Spec 015: seat reservations and their holds, deleted with the event (research R11).
   seatReservations    SeatReservation[]
   seatHolds           SeatHold[]
+  // Spec 041 FR-004: the Season it belongs to, if any (SeasonEvent's primary key is the event).
+  seasonEvent         SeasonEvent?
 
   @@index([locationId])
   @@index([layoutId])
@@ -163,11 +167,16 @@ model Order {
   requestId        String?     @db.Uuid
   // Spec 017 FR-001: the buyer's name, on every ticket; NULL before 017 (CHECK in migration SQL).
   holderName       String?
+  // Spec 041 data-model.md: the Season pass this order was bought on; one order per event per
+  // pass (partial unique order_one_per_event_per_pass, migration SQL). RESTRICT.
+  seasonPass       SeasonPass? @relation(fields: [seasonPassId], references: [id], onDelete: Restrict)
+  seasonPassId     String?     @db.Uuid
 
   @@unique([customerSub, requestId])
   @@index([eventId])
   @@index([tierId])
   @@index([customerSub, createdAt])
+  @@index([seasonPassId])
 }
 
 enum OrderStatus {
@@ -243,6 +252,8 @@ model Layout {
   levels       PriceLevel[]
   sections     Section[]
   events       Event[]
+  // Spec 041: Seasons sold on this layout (RESTRICT: a layout a Season uses is never deleted).
+  seasons      Season[]
   createdAt    DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
 
@@ -280,6 +291,9 @@ model PriceLevel {
   rows        SeatRow[]
   seats       Seat[]
   eventPrices EventLevelPrice[]
+  // Spec 041: Season pass prices for this level (CASCADE), and passes sold at it (SET NULL).
+  seasonPrices SeasonPrice[]
+  seasonPasses SeasonPass[]
 
   @@unique([layoutId, rank], map: "price_level_rank_unique")
   // The target of Section's composite foreign key, so a section's level is of its own layout.
@@ -362,6 +376,9 @@ model Seat {
   tickets    Ticket[]
   holds      SeatHold[]
   offSaleFor EventOffSaleSeat[]
+  // Spec 041: passes sold for this seat (RESTRICT) and live pass holds of it (CASCADE).
+  seasonPasses    SeasonPass[]
+  seasonPassHolds SeasonPassHold[]
 
   @@unique([rowId, number], map: "seat_number_unique")
   @@unique([rowId, label], map: "seat_label_unique")
@@ -413,10 +430,16 @@ model SeatReservation {
   // NULL until its last live hold ends; `expiresAt` when it ran out (research R3).
   endedAt     DateTime?   @db.Timestamptz(6)
   holds       SeatHold[]
+  // Spec 041 research R7 (for 042): the pass hold this reservation is part of; NULL for a
+  // single-ticket reservation. seat_reservation_one_active is per customer, event and kind
+  // (migration SQL), so a customer may hold single seats and a pass seat for one event at once.
+  passHold    SeasonPassHold? @relation(fields: [passHoldId], references: [id], onDelete: Cascade)
+  passHoldId  String?         @db.Uuid
 
   // The target of SeatHold's composite foreign key, so a hold's event is its reservation's.
   @@unique([id, eventId], map: "seat_reservation_id_event")
   @@index([customerSub])
+  @@index([passHoldId])
 }
 
 // Spec 015 (research R1, R6): one seat in a reservation, by its label as on Ticket (spec 038: and
@@ -455,4 +478,136 @@ enum SeatHoldEnd {
   LOGOUT
   BOUGHT
   CLOSED
+}
+
+// Spec 041 (data-model.md): a named set of events at one venue, sold as one pass per buyer. The
+// CHECKs (name and team length, sport and team together, passes per customer 1 to 10, presale
+// before sales end, status and its times together) live in the migration SQL.
+model Season {
+  id                   String           @id @default(uuid()) @db.Uuid
+  name                 String           @db.VarChar(100)
+  sport                Sport?
+  team                 String?          @db.VarChar(100)
+  location             Location         @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  locationId           String           @db.Uuid
+  // NULL is general admission. A layout of the venue: checked by the Backend (research R1).
+  layout               Layout?          @relation(fields: [layoutId], references: [id], onDelete: Restrict)
+  layoutId             String?          @db.Uuid
+  status               SeasonStatus     @default(DRAFT)
+  salesEndAt           DateTime         @db.Timestamptz(6)
+  // The presale's end (spec 041 FR-013); NULL is no presale.
+  singleSalesOpenAt    DateTime?        @db.Timestamptz(6)
+  maxPassesPerCustomer Int?
+  publishedAt          DateTime?        @db.Timestamptz(6)
+  cancelledAt          DateTime?        @db.Timestamptz(6)
+  events               SeasonEvent[]
+  prices               SeasonPrice[]
+  passes               SeasonPass[]
+  passHolds            SeasonPassHold[]
+  createdAt            DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime         @updatedAt @db.Timestamptz(6)
+
+  @@index([locationId])
+  @@index([layoutId])
+  @@index([status])
+}
+
+enum SeasonStatus {
+  DRAFT
+  ON_SALE
+  CANCELLED
+}
+
+// Spec 041: the contract's fixed list (adding one is a contract change).
+enum Sport {
+  BASKETBALL
+  FOOTBALL
+  BASEBALL
+  SOCCER
+  HOCKEY
+  VOLLEYBALL
+}
+
+// Spec 041 FR-004: one event in one Season; the event is the primary key, so an event is in at most
+// one Season whatever two admins do at once. RESTRICT on the event: an event in a Season is never
+// deleted; CASCADE on the Season: deleting a draft takes its list.
+model SeasonEvent {
+  event    Event  @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  eventId  String @id @db.Uuid
+  season   Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  seasonId String @db.Uuid
+
+  @@index([seasonId])
+}
+
+// Spec 041 FR-009: a pass price for one level (seated) or one ticket type name (general admission);
+// exactly one (season_price_one_target), unique per Season (season_price_level_unique,
+// season_price_tier_unique ignoring case), >= 0; all in the migration SQL.
+model SeasonPrice {
+  id       String      @id @default(uuid()) @db.Uuid
+  season   Season      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  seasonId String      @db.Uuid
+  level    PriceLevel? @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  levelId  String?     @db.Uuid
+  tierName String?     @db.VarChar(100)
+  price    Decimal     @db.Decimal(10, 2)
+
+  @@index([seasonId])
+  @@index([levelId])
+}
+
+// Spec 041 data-model.md, written by spec 042: one customer's purchase of a Season. Exactly one of
+// seatId and tierName (season_pass_one_target); refundedAt set exactly when REFUNDED; CHECKs in the
+// migration SQL. RESTRICT on the Season and seat: sold passes stay on record.
+model SeasonPass {
+  id               String           @id @default(uuid()) @db.Uuid
+  season           Season           @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  seasonId         String           @db.Uuid
+  customerSub      String
+  customerUsername String
+  holderName       String           @db.VarChar(100)
+  seat             Seat?            @relation(fields: [seatId], references: [id], onDelete: Restrict)
+  seatId           String?          @db.Uuid
+  level            PriceLevel?      @relation(fields: [levelId], references: [id], onDelete: SetNull)
+  levelId          String?          @db.Uuid
+  tierName         String?          @db.VarChar(100)
+  totalPrice       Decimal          @db.Decimal(10, 2)
+  status           SeasonPassStatus @default(ACTIVE)
+  // Idempotent confirm, as Order.requestId (spec 006 FR-005).
+  requestId        String?          @db.Uuid
+  orders           Order[]
+  createdAt        DateTime         @default(now()) @db.Timestamptz(6)
+  refundedAt       DateTime?        @db.Timestamptz(6)
+
+  @@unique([customerSub, requestId])
+  @@index([seasonId])
+  @@index([seatId])
+  @@index([levelId])
+  @@index([customerSub, createdAt])
+}
+
+enum SeasonPassStatus {
+  ACTIVE
+  REFUNDED
+}
+
+// Spec 041 research R7, written by spec 042: one seat held at every event of a Season under one
+// 5-minute timer; each event's hold is an ordinary SeatReservation with this passHoldId. Exactly 5
+// minutes (season_pass_hold_five_minutes) and one live per customer per Season
+// (season_pass_hold_one_live, partial unique); both in the migration SQL.
+model SeasonPassHold {
+  id           String            @id @default(uuid()) @db.Uuid
+  season       Season            @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  seasonId     String            @db.Uuid
+  customerSub  String
+  seat         Seat              @relation(fields: [seatId], references: [id], onDelete: Cascade)
+  seatId       String            @db.Uuid
+  createdAt    DateTime          @db.Timestamptz(6)
+  expiresAt    DateTime          @db.Timestamptz(6)
+  endedAt      DateTime?         @db.Timestamptz(6)
+  reservations SeatReservation[]
+
+  @@index([seasonId])
+  @@index([seatId])
+  @@index([customerSub])
 }

@@ -1466,6 +1466,303 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/seasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Seasons
+         * @description Feature 041. Admins get every Season, drafts and cancelled ones included; any other caller
+         *     gets only Seasons on sale (`ON_SALE`), whether or not their sales have ended
+         *     (`salesOpen`). Ordered by the start of each Season's earliest event, then name.
+         */
+        get: operations["listSeasons"];
+        put?: never;
+        /**
+         * Create a Season
+         * @description Feature 041. Saves a new Season as a draft, with its events and prices, in one step. A
+         *     draft may lack events or prices; every value it has is checked (see `SeasonInput`):
+         *     refused `400 VALIDATION_FAILED` with each field's path in `details.fields`, or `409
+         *     EVENT_IN_SEASON` (`details.field: eventIds.<i>`) for an event already in another Season,
+         *     also when two creates take the same event at once. Times are checked as event times are
+         *     (feature 020: `LOCAL_TIME_SKIPPED`, `UTC_OFFSET_MISMATCH`, with `details.field`).
+         */
+        post: operations["createSeason"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/seasons/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a Season
+         * @description Feature 041. Admins can read any Season; any other caller only one on sale (`404`
+         *     otherwise).
+         */
+        get: operations["getSeason"];
+        /**
+         * Update a Season
+         * @description Feature 041. Replaces the Season's fields, events and prices, all or nothing. Refused
+         *     `409 SEASON_CANCELLED` for a cancelled Season. Once a pass is active (`passesSold > 0`),
+         *     the events, venue and layout can't change (`409 SEASON_HAS_PASSES`, `details.field`:
+         *     `eventIds`, `locationId` or `layoutId`, and `details.passesSold`); a pass bought at the
+         *     same moment is either seen or waits for this save (feature 041 research R2). A Season on
+         *     sale is checked as `publishSeason` checks a draft, so it stays sellable. Prices may change
+         *     at any time; passes, orders and tickets already sold keep their prices.
+         */
+        put: operations["updateSeason"];
+        post?: never;
+        /**
+         * Delete a draft Season
+         * @description Feature 041. Deletes a draft with its event list and prices; its events can then join
+         *     another Season. Refused `409 SEASON_NOT_DRAFT` for a Season on sale or cancelled.
+         */
+        delete: operations["deleteSeason"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/seasons/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a Season on sale
+         * @description Feature 041. `DRAFT` → `ON_SALE`. Refused `400 VALIDATION_FAILED`, naming each problem in
+         *     `details.fields`, while the Season has fewer than 2 events not cancelled (`eventIds`), a
+         *     price level of its layout with no price (`prices.<levelId>`), no priced ticket type name
+         *     for general admission (`prices`), an event without a ticket type of a priced name
+         *     (`prices.<tierName>`, naming the event), or its `salesEndAt` not in the future or after
+         *     the start of its earliest event (`salesEndAt`). Refused `409 SEASON_NOT_DRAFT` when it is
+         *     not a draft.
+         */
+        post: operations["publishSeason"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/seasons/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a Season
+         * @description Feature 041. Irreversible: clients MUST ask the admin to confirm first, saying how many
+         *     passes will be refunded (`passesSold`). In one all-or-nothing step: ends every pass being
+         *     bought (its holds end with no 2-minute wait), marks every confirmed order of the Season's
+         *     passes refunded (simulated) and voids their valid tickets, marks every active pass
+         *     refunded, and marks the Season cancelled; freed seats are sent as open on
+         *     `streamSeatMap`. The Season's events stay scheduled and sell single tickets, with no
+         *     presale. Refused `409 SEASON_NOT_ON_SALE` for a draft (delete it instead) and `409
+         *     SEASON_CANCELLED` for a cancelled Season.
+         */
+        post: operations["cancelSeason"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/seasons/{id}/venue-map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A seated Season's venue map, without seats
+         * @description Feature 042. As `getVenueMap`, for the Season's layout, where a seat counts as open only
+         *     if it is open (not sold, not held, not off sale) at every event of the Season not
+         *     cancelled, and each level's price is its pass price. `404` for a general-admission Season
+         *     or one the caller may not see.
+         */
+        get: operations["getSeasonVenueMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/seasons/{id}/venue-map/sections/{sectionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+                /** @description A section of the Season's layout. */
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * One section of a Season's venue map, seat by seat
+         * @description Feature 042. As `getVenueMapSection`, with each seat's state across every event of the
+         *     Season not cancelled (open only if open at all of them) and its pass price.
+         */
+        get: operations["getSeasonVenueMapSection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/seasons/{id}/pass-hold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hold one seat at every event of a Season
+         * @description Feature 042. Holds the named seat for the signed-in customer at every event of the
+         *     Season not cancelled, under one 5-minute timer, all or nothing: one seat reservation per
+         *     event (as `reserveSeats` makes, with each event's rules: on sale, not taken, not waiting),
+         *     grouped by one pass hold. If the seat is not open at any event, nothing is held (`409
+         *     SEAT_TAKEN`, `SEAT_OFF_SALE` or `SEAT_COOLDOWN`, with `details.eventId`). A customer has
+         *     at most one live pass hold per Season: holding another seat replaces it. Locks the Season
+         *     row `FOR SHARE`, then its events in id order (feature 041 research R2). Refused for a
+         *     Season not on sale (`409 SEASON_NOT_ON_SALE`), at or after `salesEndAt` (`409
+         *     SEASON_SALES_CLOSED`), general admission (`400`), or over `maxPassesPerCustomer` (`409
+         *     PASS_LIMIT_REACHED`). One hold attempt (`x-attempt-limit: HOLD`), however many events.
+         *     The pass hold's reservations do not count against an event's single-ticket reservation:
+         *     a customer may have one of each per event.
+         */
+        post: operations["holdSeasonSeat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/seasons/{id}/pass-hold/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release my pass hold
+         * @description Feature 042. Ends the caller's live pass hold for the Season and every reservation in it,
+         *     as a release (the 2-minute wait applies, as feature 033). `204` also when there is none.
+         */
+        post: operations["releaseSeasonSeat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/seasons/{id}/passes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Buy a Season pass
+         * @description Feature 042. In one transaction (the Season row `FOR SHARE`, then its events in id order):
+         *     writes the `SeasonPass`, one order per event of the Season not cancelled
+         *     (`Order.seasonPass` set), each with one ticket, and ends the pass hold's reservations as
+         *     bought. Seated: requires the caller's live pass hold (`409 RESERVATION_REQUIRED`).
+         *     General admission: `tierName` names a priced ticket type, sold at each event under its
+         *     capacity (`409 SOLD_OUT`, `details.eventId`). `holderName` goes on every ticket (feature
+         *     017). The pass price is the Season's price for the seat's level or the ticket type name;
+         *     it is split evenly: with `N` events ordered by `startsAt` then id, each order's
+         *     `totalPrice`, `unitPrice` and ticket `price` is the pass price × 100 / `N` rounded down,
+         *     / 100, and the first event's adds the cents left over, so the orders sum to the pass
+         *     price. Each event's `maxTicketsPerCustomer` counts the pass as one ticket (`409
+         *     TICKET_LIMIT_REACHED`, `details.eventId`); `maxPassesPerCustomer` caps active passes
+         *     (`409 PASS_LIMIT_REACHED`). Refused for a Season not on sale or past `salesEndAt` as
+         *     `holdSeasonSeat`. Idempotent by `requestId` as `createOrder` (feature 006): a repeat
+         *     returns the same pass (`200`). One buy attempt (`x-attempt-limit: BUY`).
+         */
+        post: operations["buySeasonPass"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/passes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Season passes
+         * @description Feature 042. The signed-in customer's passes, newest first, refunded ones included, each
+         *     with its orders and tickets. The customer is the token's subject.
+         */
+        get: operations["listMyPasses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1747,6 +2044,21 @@ export interface components {
              *     `null`.
              */
             checkInDetailsRemovedAt: string | null;
+            /**
+             * @description Feature 041. The Season the event belongs to, cancelled Seasons included; `null` if
+             *     none. Always sent once 041 is implemented; not listed as required so this contract can
+             *     merge ahead of the implementation with the suite green. Clients treat a missing value
+             *     as `null`.
+             */
+            season?: components["schemas"]["SeasonRef"] | null;
+            /**
+             * Format: date-time
+             * @description Feature 041. While the event's Season is on sale and its presale has not ended, when
+             *     single tickets go on sale (until then only passes sell, `409 SEASON_PRESALE`); `null`
+             *     otherwise. Always sent once 041 is implemented; clients treat a missing value as
+             *     `null`.
+             */
+            singleSalesOpenAt?: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -2080,6 +2392,11 @@ export interface components {
             /** Format: date-time */
             refundedAt: string | null;
             tickets: components["schemas"]["Ticket"][];
+            /**
+             * @description Feature 041. The Season pass this order was bought on; `null` for a single-ticket
+             *     order. Always sent once 041 is implemented; clients treat a missing value as `null`.
+             */
+            seasonPass?: components["schemas"]["OrderSeasonPass"] | null;
         };
         OrderInput: {
             /**
@@ -2902,6 +3219,16 @@ export interface components {
              *     general admission.
              */
             levels: components["schemas"]["LevelSales"][];
+            /**
+             * @description Feature 041. Of `ticketsSold`, the valid tickets of orders bought on a Season pass.
+             *     Always sent once 041 is implemented; clients treat a missing value as 0.
+             */
+            passTicketsSold?: number;
+            /**
+             * @description Feature 041. Of `revenue`, the confirmed orders bought on a Season pass (each its share
+             *     of the pass price). Always sent once 041 is implemented; a missing value is '0.00'.
+             */
+            passRevenue?: string;
         };
         SalesReport: {
             /** Format: date-time */
@@ -2915,6 +3242,10 @@ export interface components {
                 checkedIn: number;
                 /** @example 45.00 */
                 revenue: string;
+                /** @description Feature 041. As `EventSales.passTicketsSold`, over all events. */
+                passTicketsSold?: number;
+                /** @description Feature 041. As `EventSales.passRevenue`, over all events. */
+                passRevenue?: string;
             };
             events: components["schemas"]["EventSales"][];
         };
@@ -3014,13 +3345,220 @@ export interface components {
             usedAt: string;
         };
         /**
+         * @description Feature 041. The sports a Season can be for; a fixed list so customers can group by sport
+         *     (adding one is a contract change).
+         * @enum {string}
+         */
+        Sport: "BASKETBALL" | "FOOTBALL" | "BASEBALL" | "SOCCER" | "HOCKEY" | "VOLLEYBALL";
+        /** @description Feature 041. The Season an event belongs to. */
+        SeasonRef: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        /** @description Feature 041. One event of a Season. */
+        SeasonEventSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt: string;
+            /** @enum {string} */
+            status: "SCHEDULED" | "CANCELLED";
+        };
+        /**
+         * @description Feature 041. A pass price for one price level of a seated Season's layout (`levelId`) or
+         *     one ticket type name of a general-admission Season (`tierName`); exactly one is set.
+         */
+        SeasonPrice: {
+            /** Format: uuid */
+            levelId: string | null;
+            levelName: string | null;
+            tierName: string | null;
+            /** @example 640.00 */
+            price: string;
+        };
+        /** @description Exactly one of `levelId` (seated) or `tierName` (general admission). */
+        SeasonPriceInput: {
+            /** Format: uuid */
+            levelId?: string;
+            tierName?: string;
+            /** @example 640.00 */
+            price: string;
+        };
+        /**
+         * @description Feature 041. A named set of events at one venue, on one layout (seated) or general
+         *     admission, sold as one pass per buyer. Status `DRAFT` (not visible to customers),
+         *     `ON_SALE`, or `CANCELLED` (read-only, every pass refunded). Pass sales run until
+         *     `salesEndAt`; while `singleSalesOpenAt` is in the future, the events sell only passes
+         *     (`Event.singleSalesOpenAt`).
+         */
+        Season: {
+            /** Format: uuid */
+            id: string;
+            /** @example Louisville Cardinals Basketball 2026–27 */
+            name: string;
+            /** @description Set together with `team`, or neither. */
+            sport: components["schemas"]["Sport"] | null;
+            /** @example Louisville Cardinals */
+            team: string | null;
+            /** Format: uuid */
+            locationId: string;
+            venueName: string;
+            /** @description The venue's time zone, for showing the Season's times (feature 020). */
+            timeZone: components["schemas"]["UsTimeZone"];
+            /**
+             * Format: uuid
+             * @description The layout every event sells; `null` for general admission.
+             */
+            layoutId: string | null;
+            layoutName: string | null;
+            /** @enum {string} */
+            status: "DRAFT" | "ON_SALE" | "CANCELLED";
+            /**
+             * Format: date-time
+             * @description Pass sales end here (exclusive); never after the earliest event's start.
+             */
+            salesEndAt: string;
+            /**
+             * Format: date-time
+             * @description When single tickets for the Season's events go on sale; `null` for no presale. Never
+             *     after `salesEndAt`.
+             */
+            singleSalesOpenAt: string | null;
+            maxPassesPerCustomer: number | null;
+            /** @description `ON_SALE` and before `salesEndAt`, by the Backend's clock. */
+            salesOpen: boolean;
+            /** Format: date-time */
+            publishedAt: string | null;
+            /** Format: date-time */
+            cancelledAt: string | null;
+            /** @description The Season's events by `startsAt`, cancelled ones included and marked. */
+            events: components["schemas"]["SeasonEventSummary"][];
+            /** @description By level rank (seated) or name (general admission). */
+            prices: components["schemas"]["SeasonPrice"][];
+            /** @description Active (not refunded) passes. */
+            passesSold: number;
+            /** @description The sum of the Season's confirmed pass orders. */
+            passRevenue: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /**
+         * @description Feature 041. The whole Season, as the form sends it. Every field is checked when present;
+         *     a draft may have fewer than 2 events and missing prices (`publishSeason` refuses those).
+         *     `name` 1–100 after trimming; `sport` and `team` both or neither; `layoutId` a layout of
+         *     the venue, or `null` for general admission; `salesEndAt` no later than the start of the
+         *     earliest event not cancelled; `singleSalesOpenAt` no later than `salesEndAt`; times as
+         *     event times (the venue's local time with its offset, feature 020). Each event at the
+         *     venue, on the layout (seated) or general admission, scheduled, not started, and in no
+         *     other Season (`eventIds.<i>`), at most 50, no repeats. Prices: seated, each `levelId` a
+         *     level of the layout, once; general admission, each `tierName` once ignoring case, and
+         *     every event has a ticket type of that name.
+         */
+        SeasonInput: {
+            name: string;
+            sport?: components["schemas"]["Sport"] | null;
+            team?: string | null;
+            /** Format: uuid */
+            locationId: string;
+            /** Format: uuid */
+            layoutId: string | null;
+            /**
+             * Format: date-time
+             * @example 2026-12-05T19:00:00-05:00
+             */
+            salesEndAt: string;
+            /** Format: date-time */
+            singleSalesOpenAt?: string | null;
+            maxPassesPerCustomer?: number | null;
+            eventIds: string[];
+            prices: components["schemas"]["SeasonPriceInput"][];
+        };
+        SeasonCancellation: {
+            season: components["schemas"]["Season"];
+            passesRefunded: number;
+            ordersRefunded: number;
+            ticketsVoided: number;
+        };
+        /** @description Feature 041. The pass an order was bought on. */
+        OrderSeasonPass: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            seasonId: string;
+            seasonName: string;
+        };
+        /** @description Feature 042. The seat to hold at every event of the Season. */
+        PassHoldInput: {
+            seat: components["schemas"]["SeatChoice"];
+        };
+        /**
+         * @description Feature 042. The caller's live hold of one seat at every event of a Season, for 5
+         *     minutes; it is never extended.
+         */
+        PassHold: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            seasonId: string;
+            seat: components["schemas"]["SeatLabel"];
+            levelName: string;
+            /** @description The pass price for the seat's level. */
+            price: string;
+            eventIds: string[];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            secondsLeft: number;
+        };
+        /** @description Feature 042. */
+        SeasonPassInput: {
+            /** @description The name on every ticket (feature 017); refused blank as `createOrder`. */
+            holderName: string;
+            /** @description General admission only; the priced ticket type name to buy. */
+            tierName?: string;
+            /**
+             * Format: uuid
+             * @description As `OrderInput.requestId` (feature 006).
+             */
+            requestId?: string;
+        };
+        /** @description Feature 042. One customer's purchase of a Season. */
+        SeasonPass: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            seasonId: string;
+            seasonName: string;
+            holderName: string;
+            /** @description `null` for general admission. */
+            seat: components["schemas"]["SeatLabel"] | null;
+            levelName: string | null;
+            tierName: string | null;
+            totalPrice: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "REFUNDED";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            refundedAt: string | null;
+            /** @description One per event, by the event's `startsAt`. */
+            orders: components["schemas"]["Order"][];
+        };
+        /**
          * @description Every non-2xx response uses this shape. `code` is the stable machine-readable
          *     discriminator clients branch on; `message` is human-readable and may change.
          */
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "LAYOUT_NAME_TAKEN" | "LAYOUT_FILE_INVALID" | "SEAT_OFF_SALE" | "LAYOUT_CHANGED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH" | "DOORS_OPEN_OUT_OF_RANGE" | "RATE_LIMITED" | "CHECK_IN_DETAILS_REMOVED";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "LAYOUT_NAME_TAKEN" | "LAYOUT_FILE_INVALID" | "SEAT_OFF_SALE" | "LAYOUT_CHANGED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH" | "DOORS_OPEN_OUT_OF_RANGE" | "RATE_LIMITED" | "CHECK_IN_DETAILS_REMOVED" | "EVENT_IN_SEASON" | "SEASON_HAS_PASSES" | "SEASON_CANCELLED" | "SEASON_NOT_DRAFT" | "SEASON_NOT_ON_SALE" | "SEASON_PRESALE" | "SEASON_SALES_CLOSED" | "PASS_LIMIT_REACHED";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -4898,6 +5436,372 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SalesReport"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listSeasons: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Seasons the caller may see. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Season"][];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    createSeason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonInput"];
+            };
+        };
+        responses: {
+            /** @description The new draft. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Season"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getSeason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Season with its events and prices. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Season"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateSeason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonInput"];
+            };
+        };
+        responses: {
+            /** @description The saved Season. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Season"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteSeason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    publishSeason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Season, now on sale. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Season"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    cancelSeason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Season, cancelled, with what was refunded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeasonCancellation"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getSeasonVenueMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The map. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VenueMap"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getSeasonVenueMapSection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+                /** @description A section of the Season's layout. */
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The section. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VenueMapSection"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    holdSeasonSeat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PassHoldInput"];
+            };
+        };
+        responses: {
+            /** @description The pass hold, ending 5 minutes from now. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PassHold"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyAttempts"];
+        };
+    };
+    releaseSeasonSeat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Released */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    buySeasonPass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Season. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonPassInput"];
+            };
+        };
+        responses: {
+            /** @description A repeat of a confirmed `requestId`; the pass it made. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeasonPass"];
+                };
+            };
+            /** @description The new pass, with its orders. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeasonPass"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyAttempts"];
+        };
+    };
+    listMyPasses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's passes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeasonPass"][];
                 };
             };
             401: components["responses"]["Unauthenticated"];

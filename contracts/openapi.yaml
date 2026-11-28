@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 2.1.0
+  version: 2.2.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -105,6 +105,21 @@ info:
     number in its row (1 = first drawn); responses add the labels people read (`rowLabel`,
     `seatLabel`). Map places are `[x, y]` in the layout's map units, `y` growing downward, as in SVG.
 
+    **Seasons** (features 041 and 042): a Season is a named set of events at one venue, on one
+    layout or general admission, sold as one pass per buyer (`listSeasons`). An event is in at
+    most one Season. An event in a Season not cancelled (`Event.season`) can't change its layout
+    or switch between reserved seating and general admission, move its start before the Season's
+    `salesEndAt`, be deleted, or (general admission) rename or delete a ticket type whose name the
+    Season prices: `updateEvent`, `deleteEvent`, `updateTicketTier` and `deleteTicketTier` are
+    refused with `409 EVENT_IN_SEASON` (`details.field`, `seasonId`, `seasonName`). Cancelling an
+    event (`cancelEvent`) refunds its pass orders like any order; each pass stays valid for the
+    Season's other events. **Presale**: while an event's `singleSalesOpenAt` is in the future,
+    `createOrder` and `reserveSeats` for it are refused with `409 SEASON_PRESALE`
+    (`details.singleSalesOpenAt`), after `EVENT_CANCELLED` and `SALES_CLOSED`, by the database's
+    clock (feature 042 serves this refusal). Season writes lock the venue `FOR SHARE`, then the
+    Season row, then its events in id order; pass holds and purchases lock the Season `FOR SHARE`,
+    then its events in id order; event writes never lock a Season (feature 041 research R2).
+
     **Live streams**: `streamSeatMap` answers with `text/event-stream` (Server-Sent Events). It is
     a plain HTTP `GET`. Each event's `data` is one JSON document, and `x-sse-events` on the
     operation maps each event name to its schema, so clients and tests take the payload types from
@@ -148,6 +163,10 @@ tags:
       Gate check-in in the Ticket Booth app: look a ticket up by its code, then admit it, or every
       unused ticket of its order, exactly once (feature 017); live codes that change every 30
       seconds, and the buyer's entry key that makes them (feature 018)
+  - name: seasons
+    description: |
+      Seasons sold as passes: setup, pricing, the presale, and cancelling by admins (feature 041);
+      the Season's seat map, pass holds, buying a pass, and a customer's passes (feature 042)
 
 paths:
   /health:
@@ -2116,6 +2135,396 @@ paths:
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  /seasons:
+    get:
+      tags: [seasons]
+      summary: List Seasons
+      description: |
+        Feature 041. Admins get every Season, drafts and cancelled ones included; any other caller
+        gets only Seasons on sale (`ON_SALE`), whether or not their sales have ended
+        (`salesOpen`). Ordered by the start of each Season's earliest event, then name.
+      operationId: listSeasons
+      x-planned: '041'
+      x-required-roles: []
+      responses:
+        '200':
+          description: The Seasons the caller may see.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Season' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [seasons]
+      summary: Create a Season
+      description: |
+        Feature 041. Saves a new Season as a draft, with its events and prices, in one step. A
+        draft may lack events or prices; every value it has is checked (see `SeasonInput`):
+        refused `400 VALIDATION_FAILED` with each field's path in `details.fields`, or `409
+        EVENT_IN_SEASON` (`details.field: eventIds.<i>`) for an event already in another Season,
+        also when two creates take the same event at once. Times are checked as event times are
+        (feature 020: `LOCAL_TIME_SKIPPED`, `UTC_OFFSET_MISMATCH`, with `details.field`).
+      operationId: createSeason
+      x-planned: '041'
+      x-required-roles: [queuepass-admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SeasonInput' }
+      responses:
+        '201':
+          description: The new draft.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Season' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /seasons/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The Season.
+    get:
+      tags: [seasons]
+      summary: Get a Season
+      description: |
+        Feature 041. Admins can read any Season; any other caller only one on sale (`404`
+        otherwise).
+      operationId: getSeason
+      x-planned: '041'
+      x-required-roles: []
+      responses:
+        '200':
+          description: The Season with its events and prices.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Season' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [seasons]
+      summary: Update a Season
+      description: |
+        Feature 041. Replaces the Season's fields, events and prices, all or nothing. Refused
+        `409 SEASON_CANCELLED` for a cancelled Season. Once a pass is active (`passesSold > 0`),
+        the events, venue and layout can't change (`409 SEASON_HAS_PASSES`, `details.field`:
+        `eventIds`, `locationId` or `layoutId`, and `details.passesSold`); a pass bought at the
+        same moment is either seen or waits for this save (feature 041 research R2). A Season on
+        sale is checked as `publishSeason` checks a draft, so it stays sellable. Prices may change
+        at any time; passes, orders and tickets already sold keep their prices.
+      operationId: updateSeason
+      x-planned: '041'
+      x-required-roles: [queuepass-admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SeasonInput' }
+      responses:
+        '200':
+          description: The saved Season.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Season' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [seasons]
+      summary: Delete a draft Season
+      description: |
+        Feature 041. Deletes a draft with its event list and prices; its events can then join
+        another Season. Refused `409 SEASON_NOT_DRAFT` for a Season on sale or cancelled.
+      operationId: deleteSeason
+      x-planned: '041'
+      x-required-roles: [queuepass-admin]
+      responses:
+        '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /seasons/{id}/publish:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The Season.
+    post:
+      tags: [seasons]
+      summary: Put a Season on sale
+      description: |
+        Feature 041. `DRAFT` → `ON_SALE`. Refused `400 VALIDATION_FAILED`, naming each problem in
+        `details.fields`, while the Season has fewer than 2 events not cancelled (`eventIds`), a
+        price level of its layout with no price (`prices.<levelId>`), no priced ticket type name
+        for general admission (`prices`), an event without a ticket type of a priced name
+        (`prices.<tierName>`, naming the event), or its `salesEndAt` not in the future or after
+        the start of its earliest event (`salesEndAt`). Refused `409 SEASON_NOT_DRAFT` when it is
+        not a draft.
+      operationId: publishSeason
+      x-planned: '041'
+      x-required-roles: [queuepass-admin]
+      responses:
+        '200':
+          description: The Season, now on sale.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Season' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /seasons/{id}/cancel:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The Season.
+    post:
+      tags: [seasons]
+      summary: Cancel a Season
+      description: |
+        Feature 041. Irreversible: clients MUST ask the admin to confirm first, saying how many
+        passes will be refunded (`passesSold`). In one all-or-nothing step: ends every pass being
+        bought (its holds end with no 2-minute wait), marks every confirmed order of the Season's
+        passes refunded (simulated) and voids their valid tickets, marks every active pass
+        refunded, and marks the Season cancelled; freed seats are sent as open on
+        `streamSeatMap`. The Season's events stay scheduled and sell single tickets, with no
+        presale. Refused `409 SEASON_NOT_ON_SALE` for a draft (delete it instead) and `409
+        SEASON_CANCELLED` for a cancelled Season.
+      operationId: cancelSeason
+      x-planned: '041'
+      x-required-roles: [queuepass-admin]
+      responses:
+        '200':
+          description: The Season, cancelled, with what was refunded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SeasonCancellation' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /seasons/{id}/venue-map:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The Season.
+    get:
+      tags: [seasons]
+      summary: A seated Season's venue map, without seats
+      description: |
+        Feature 042. As `getVenueMap`, for the Season's layout, where a seat counts as open only
+        if it is open (not sold, not held, not off sale) at every event of the Season not
+        cancelled, and each level's price is its pass price. `404` for a general-admission Season
+        or one the caller may not see.
+      operationId: getSeasonVenueMap
+      x-planned: '042'
+      x-required-roles: []
+      responses:
+        '200':
+          description: The map.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VenueMap' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /seasons/{id}/venue-map/sections/{sectionId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The Season.
+      - name: sectionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: A section of the Season's layout.
+    get:
+      tags: [seasons]
+      summary: One section of a Season's venue map, seat by seat
+      description: |
+        Feature 042. As `getVenueMapSection`, with each seat's state across every event of the
+        Season not cancelled (open only if open at all of them) and its pass price.
+      operationId: getSeasonVenueMapSection
+      x-planned: '042'
+      x-required-roles: []
+      responses:
+        '200':
+          description: The section.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VenueMapSection' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /seasons/{id}/pass-hold:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The Season.
+    post:
+      tags: [seasons]
+      summary: Hold one seat at every event of a Season
+      description: |
+        Feature 042. Holds the named seat for the signed-in customer at every event of the
+        Season not cancelled, under one 5-minute timer, all or nothing: one seat reservation per
+        event (as `reserveSeats` makes, with each event's rules: on sale, not taken, not waiting),
+        grouped by one pass hold. If the seat is not open at any event, nothing is held (`409
+        SEAT_TAKEN`, `SEAT_OFF_SALE` or `SEAT_COOLDOWN`, with `details.eventId`). A customer has
+        at most one live pass hold per Season: holding another seat replaces it. Locks the Season
+        row `FOR SHARE`, then its events in id order (feature 041 research R2). Refused for a
+        Season not on sale (`409 SEASON_NOT_ON_SALE`), at or after `salesEndAt` (`409
+        SEASON_SALES_CLOSED`), general admission (`400`), or over `maxPassesPerCustomer` (`409
+        PASS_LIMIT_REACHED`). One hold attempt (`x-attempt-limit: HOLD`), however many events.
+        The pass hold's reservations do not count against an event's single-ticket reservation:
+        a customer may have one of each per event.
+      operationId: holdSeasonSeat
+      x-planned: '042'
+      x-required-roles: [customer]
+      x-attempt-limit: HOLD
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PassHoldInput' }
+      responses:
+        '201':
+          description: The pass hold, ending 5 minutes from now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PassHold' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
+
+  /seasons/{id}/pass-hold/release:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The Season.
+    post:
+      tags: [seasons]
+      summary: Release my pass hold
+      description: |
+        Feature 042. Ends the caller's live pass hold for the Season and every reservation in it,
+        as a release (the 2-minute wait applies, as feature 033). `204` also when there is none.
+      operationId: releaseSeasonSeat
+      x-planned: '042'
+      x-required-roles: [customer]
+      responses:
+        '204': { description: Released, or nothing was held. }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /seasons/{id}/passes:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The Season.
+    post:
+      tags: [seasons]
+      summary: Buy a Season pass
+      description: |
+        Feature 042. In one transaction (the Season row `FOR SHARE`, then its events in id order):
+        writes the `SeasonPass`, one order per event of the Season not cancelled
+        (`Order.seasonPass` set), each with one ticket, and ends the pass hold's reservations as
+        bought. Seated: requires the caller's live pass hold (`409 RESERVATION_REQUIRED`).
+        General admission: `tierName` names a priced ticket type, sold at each event under its
+        capacity (`409 SOLD_OUT`, `details.eventId`). `holderName` goes on every ticket (feature
+        017). The pass price is the Season's price for the seat's level or the ticket type name;
+        it is split evenly: with `N` events ordered by `startsAt` then id, each order's
+        `totalPrice`, `unitPrice` and ticket `price` is the pass price × 100 / `N` rounded down,
+        / 100, and the first event's adds the cents left over, so the orders sum to the pass
+        price. Each event's `maxTicketsPerCustomer` counts the pass as one ticket (`409
+        TICKET_LIMIT_REACHED`, `details.eventId`); `maxPassesPerCustomer` caps active passes
+        (`409 PASS_LIMIT_REACHED`). Refused for a Season not on sale or past `salesEndAt` as
+        `holdSeasonSeat`. Idempotent by `requestId` as `createOrder` (feature 006): a repeat
+        returns the same pass (`200`). One buy attempt (`x-attempt-limit: BUY`).
+      operationId: buySeasonPass
+      x-planned: '042'
+      x-required-roles: [customer]
+      x-attempt-limit: BUY
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SeasonPassInput' }
+      responses:
+        '200':
+          description: A repeat of a confirmed `requestId`; the pass it made.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SeasonPass' }
+        '201':
+          description: The new pass, with its orders.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SeasonPass' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
+
+  /me/passes:
+    get:
+      tags: [seasons]
+      summary: My Season passes
+      description: |
+        Feature 042. The signed-in customer's passes, newest first, refunded ones included, each
+        with its orders and tickets. The customer is the token's subject.
+      operationId: listMyPasses
+      x-planned: '042'
+      x-required-roles: [customer]
+      responses:
+        '200':
+          description: The caller's passes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SeasonPass' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -2534,6 +2943,23 @@ components:
             or after `endsAt` plus 7 days; `null` until then. Required from 1.24.0 once implemented
             (feature 032's implementation); clients of an older Backend treat a missing value as
             `null`.
+        season:
+          oneOf:
+            - $ref: '#/components/schemas/SeasonRef'
+            - type: 'null'
+          description: |
+            Feature 041. The Season the event belongs to, cancelled Seasons included; `null` if
+            none. Always sent once 041 is implemented; not listed as required so this contract can
+            merge ahead of the implementation with the suite green. Clients treat a missing value
+            as `null`.
+        singleSalesOpenAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            Feature 041. While the event's Season is on sale and its presale has not ended, when
+            single tickets go on sale (until then only passes sell, `409 SEASON_PRESALE`); `null`
+            otherwise. Always sent once 041 is implemented; clients treat a missing value as
+            `null`.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -2941,6 +3367,13 @@ components:
         tickets:
           type: array
           items: { $ref: '#/components/schemas/Ticket' }
+        seasonPass:
+          oneOf:
+            - $ref: '#/components/schemas/OrderSeasonPass'
+            - type: 'null'
+          description: |
+            Feature 041. The Season pass this order was bought on; `null` for a single-ticket
+            order. Always sent once 041 is implemented; clients treat a missing value as `null`.
 
     OrderInput:
       type: object
@@ -4071,6 +4504,18 @@ components:
             Feature 038. A seated event's sales by price level (its `tiers` is empty); empty for
             general admission.
           items: { $ref: '#/components/schemas/LevelSales' }
+        passTicketsSold:
+          type: integer
+          minimum: 0
+          description: |
+            Feature 041. Of `ticketsSold`, the valid tickets of orders bought on a Season pass.
+            Always sent once 041 is implemented; clients treat a missing value as 0.
+        passRevenue:
+          type: string
+          pattern: '^\d+\.\d{2}$'
+          description: |
+            Feature 041. Of `revenue`, the confirmed orders bought on a Season pass (each its share
+            of the pass price). Always sent once 041 is implemented; a missing value is '0.00'.
 
     SalesReport:
       type: object
@@ -4087,6 +4532,14 @@ components:
             ticketsSold: { type: integer, minimum: 0 }
             checkedIn: { type: integer, minimum: 0 }
             revenue: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
+            passTicketsSold:
+              type: integer
+              minimum: 0
+              description: Feature 041. As `EventSales.passTicketsSold`, over all events.
+            passRevenue:
+              type: string
+              pattern: '^\d+\.\d{2}$'
+              description: Feature 041. As `EventSales.passRevenue`, over all events.
         events:
           type: array
           items: { $ref: '#/components/schemas/EventSales' }
@@ -4233,6 +4686,293 @@ components:
         code: { type: string, pattern: '^[A-Z2-9]{12}$' }
         usedAt: { type: string, format: date-time }
 
+    Sport:
+      description: |
+        Feature 041. The sports a Season can be for; a fixed list so customers can group by sport
+        (adding one is a contract change).
+      type: string
+      enum: [BASKETBALL, FOOTBALL, BASEBALL, SOCCER, HOCKEY, VOLLEYBALL]
+
+    SeasonRef:
+      description: Feature 041. The Season an event belongs to.
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 100 }
+
+    SeasonEventSummary:
+      description: Feature 041. One event of a Season.
+      type: object
+      required: [id, name, startsAt, endsAt, status]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        status: { type: string, enum: [SCHEDULED, CANCELLED] }
+
+    SeasonPrice:
+      description: |
+        Feature 041. A pass price for one price level of a seated Season's layout (`levelId`) or
+        one ticket type name of a general-admission Season (`tierName`); exactly one is set.
+      type: object
+      required: [levelId, levelName, tierName, price]
+      properties:
+        levelId: { type: [string, 'null'], format: uuid }
+        levelName: { type: [string, 'null'] }
+        tierName: { type: [string, 'null'], minLength: 1, maxLength: 100 }
+        price: { type: string, pattern: '^\d+\.\d{2}$', example: '640.00' }
+
+    SeasonPriceInput:
+      type: object
+      required: [price]
+      additionalProperties: false
+      description: Exactly one of `levelId` (seated) or `tierName` (general admission).
+      properties:
+        levelId: { type: string, format: uuid }
+        tierName: { type: string, minLength: 1, maxLength: 100 }
+        price: { type: string, pattern: '^\d+(\.\d{1,2})?$', example: '640.00' }
+
+    Season:
+      description: |
+        Feature 041. A named set of events at one venue, on one layout (seated) or general
+        admission, sold as one pass per buyer. Status `DRAFT` (not visible to customers),
+        `ON_SALE`, or `CANCELLED` (read-only, every pass refunded). Pass sales run until
+        `salesEndAt`; while `singleSalesOpenAt` is in the future, the events sell only passes
+        (`Event.singleSalesOpenAt`).
+      type: object
+      required:
+        [
+          id,
+          name,
+          sport,
+          team,
+          locationId,
+          venueName,
+          timeZone,
+          layoutId,
+          layoutName,
+          status,
+          salesEndAt,
+          singleSalesOpenAt,
+          maxPassesPerCustomer,
+          salesOpen,
+          publishedAt,
+          cancelledAt,
+          events,
+          prices,
+          passesSold,
+          passRevenue,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        name:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 100,
+            example: Louisville Cardinals Basketball 2026–27,
+          }
+        sport:
+          oneOf:
+            - $ref: '#/components/schemas/Sport'
+            - type: 'null'
+          description: Set together with `team`, or neither.
+        team:
+          { type: [string, 'null'], minLength: 1, maxLength: 100, example: Louisville Cardinals }
+        locationId: { type: string, format: uuid }
+        venueName: { type: string }
+        timeZone:
+          allOf: [{ $ref: '#/components/schemas/UsTimeZone' }]
+          description: The venue's time zone, for showing the Season's times (feature 020).
+        layoutId:
+          type: [string, 'null']
+          format: uuid
+          description: The layout every event sells; `null` for general admission.
+        layoutName: { type: [string, 'null'] }
+        status: { type: string, enum: [DRAFT, ON_SALE, CANCELLED] }
+        salesEndAt:
+          type: string
+          format: date-time
+          description: Pass sales end here (exclusive); never after the earliest event's start.
+        singleSalesOpenAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            When single tickets for the Season's events go on sale; `null` for no presale. Never
+            after `salesEndAt`.
+        maxPassesPerCustomer: { type: [integer, 'null'], minimum: 1, maximum: 10 }
+        salesOpen:
+          type: boolean
+          description: "`ON_SALE` and before `salesEndAt`, by the Backend's clock."
+        publishedAt: { type: [string, 'null'], format: date-time }
+        cancelledAt: { type: [string, 'null'], format: date-time }
+        events:
+          type: array
+          description: The Season's events by `startsAt`, cancelled ones included and marked.
+          items: { $ref: '#/components/schemas/SeasonEventSummary' }
+        prices:
+          type: array
+          description: By level rank (seated) or name (general admission).
+          items: { $ref: '#/components/schemas/SeasonPrice' }
+        passesSold:
+          type: integer
+          minimum: 0
+          description: Active (not refunded) passes.
+        passRevenue:
+          type: string
+          pattern: '^\d+\.\d{2}$'
+          description: The sum of the Season's confirmed pass orders.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    SeasonInput:
+      description: |
+        Feature 041. The whole Season, as the form sends it. Every field is checked when present;
+        a draft may have fewer than 2 events and missing prices (`publishSeason` refuses those).
+        `name` 1–100 after trimming; `sport` and `team` both or neither; `layoutId` a layout of
+        the venue, or `null` for general admission; `salesEndAt` no later than the start of the
+        earliest event not cancelled; `singleSalesOpenAt` no later than `salesEndAt`; times as
+        event times (the venue's local time with its offset, feature 020). Each event at the
+        venue, on the layout (seated) or general admission, scheduled, not started, and in no
+        other Season (`eventIds.<i>`), at most 50, no repeats. Prices: seated, each `levelId` a
+        level of the layout, once; general admission, each `tierName` once ignoring case, and
+        every event has a ticket type of that name.
+      type: object
+      required: [name, locationId, layoutId, salesEndAt, eventIds, prices]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        sport:
+          oneOf:
+            - $ref: '#/components/schemas/Sport'
+            - type: 'null'
+        team: { type: [string, 'null'], minLength: 1, maxLength: 100 }
+        locationId: { type: string, format: uuid }
+        layoutId: { type: [string, 'null'], format: uuid }
+        salesEndAt: { type: string, format: date-time, example: '2026-12-05T19:00:00-05:00' }
+        singleSalesOpenAt: { type: [string, 'null'], format: date-time }
+        maxPassesPerCustomer: { type: [integer, 'null'], minimum: 1, maximum: 10 }
+        eventIds:
+          type: array
+          maxItems: 50
+          items: { type: string, format: uuid }
+        prices:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/SeasonPriceInput' }
+
+    SeasonCancellation:
+      type: object
+      required: [season, passesRefunded, ordersRefunded, ticketsVoided]
+      properties:
+        season: { $ref: '#/components/schemas/Season' }
+        passesRefunded: { type: integer, minimum: 0 }
+        ordersRefunded: { type: integer, minimum: 0 }
+        ticketsVoided: { type: integer, minimum: 0 }
+
+    OrderSeasonPass:
+      description: Feature 041. The pass an order was bought on.
+      type: object
+      required: [id, seasonId, seasonName]
+      properties:
+        id: { type: string, format: uuid }
+        seasonId: { type: string, format: uuid }
+        seasonName: { type: string }
+
+    PassHoldInput:
+      description: Feature 042. The seat to hold at every event of the Season.
+      type: object
+      required: [seat]
+      additionalProperties: false
+      properties:
+        seat: { $ref: '#/components/schemas/SeatChoice' }
+
+    PassHold:
+      description: |
+        Feature 042. The caller's live hold of one seat at every event of a Season, for 5
+        minutes; it is never extended.
+      type: object
+      required: [id, seasonId, seat, levelName, price, eventIds, createdAt, expiresAt, secondsLeft]
+      properties:
+        id: { type: string, format: uuid }
+        seasonId: { type: string, format: uuid }
+        seat: { $ref: '#/components/schemas/SeatLabel' }
+        levelName: { type: string }
+        price:
+          type: string
+          pattern: '^\d+\.\d{2}$'
+          description: The pass price for the seat's level.
+        eventIds:
+          type: array
+          items: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        secondsLeft: { type: integer, minimum: 0, maximum: 300 }
+
+    SeasonPassInput:
+      description: Feature 042.
+      type: object
+      required: [holderName]
+      additionalProperties: false
+      properties:
+        holderName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: The name on every ticket (feature 017); refused blank as `createOrder`.
+        tierName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: General admission only; the priced ticket type name to buy.
+        requestId:
+          type: string
+          format: uuid
+          description: As `OrderInput.requestId` (feature 006).
+
+    SeasonPass:
+      description: Feature 042. One customer's purchase of a Season.
+      type: object
+      required:
+        [
+          id,
+          seasonId,
+          seasonName,
+          holderName,
+          seat,
+          levelName,
+          tierName,
+          totalPrice,
+          status,
+          createdAt,
+          refundedAt,
+          orders,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        seasonId: { type: string, format: uuid }
+        seasonName: { type: string }
+        holderName: { type: string, minLength: 1, maxLength: 100 }
+        seat:
+          oneOf:
+            - $ref: '#/components/schemas/SeatLabel'
+            - type: 'null'
+          description: '`null` for general admission.'
+        levelName: { type: [string, 'null'] }
+        tierName: { type: [string, 'null'] }
+        totalPrice: { type: string, pattern: '^\d+\.\d{2}$' }
+        status: { type: string, enum: [ACTIVE, REFUNDED] }
+        createdAt: { type: string, format: date-time }
+        refundedAt: { type: [string, 'null'], format: date-time }
+        orders:
+          type: array
+          description: One per event, by the event's `startsAt`.
+          items: { $ref: '#/components/schemas/Order' }
+
     ErrorEnvelope:
       type: object
       required: [error]
@@ -4291,6 +5031,14 @@ components:
                 - DOORS_OPEN_OUT_OF_RANGE
                 - RATE_LIMITED
                 - CHECK_IN_DETAILS_REMOVED
+                - EVENT_IN_SEASON
+                - SEASON_HAS_PASSES
+                - SEASON_CANCELLED
+                - SEASON_NOT_DRAFT
+                - SEASON_NOT_ON_SALE
+                - SEASON_PRESALE
+                - SEASON_SALES_CLOSED
+                - PASS_LIMIT_REACHED
             message: { type: string }
             details: { type: object, additionalProperties: true }
 

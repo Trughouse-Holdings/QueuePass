@@ -149,9 +149,9 @@ see the pass's orders refunded and its tickets void.
    saves; the sold pass and its tickets keep the prices they were sold at.
 4. **Given** a draft with no passes, **When** the admin deletes it, **Then** it is gone and its
    events can join another Season.
-5. **Given** a Season on sale with passes, **When** the admin cancels it and confirms, **Then** every
-   pass is refunded (every one of its orders refunded, its tickets void, its seats free), the Season
-   is cancelled and read-only, and its events stay scheduled and on sale as single tickets.
+5. **Given** a Season on sale with passes, **When** the admin cancels it and confirms, **Then**
+   every pass is refunded (every one of its orders refunded, its tickets void, its seats free), the
+   Season is cancelled and read-only, and its events stay scheduled and on sale as single tickets.
 6. **Given** a Season whose events include one the admin cancels (`005`), **When** the cancellation
    completes, **Then** that event's pass orders are refunded like any other order, and each pass
    stays valid for the Season's other events.
@@ -163,10 +163,10 @@ see the pass's orders refunded and its tickets void.
 
 ### User Story 3 - An admin sees pass sales and pass holders (Priority: P1)
 
-The sales report says, for each event, how many of its tickets and how much of its revenue came from
-passes, and lists each Season with its passes sold and pass revenue. The attendee list marks each
-order bought on a pass with its Season's name. The same figures and marks appear in the CSV, Excel
-and PDF exports.
+The sales report says, for each event and in its total, how many tickets and how much revenue came
+from passes. The Seasons list and each Season's page show its passes sold and pass revenue. The
+attendee list marks each order bought on a pass with its Season's name. The same figures and marks
+appear in the CSV, Excel and PDF exports.
 
 **Why this priority**: The issue's "done when": an admin puts a Season on sale and sees a pass sale
 in the sales report.
@@ -179,7 +179,8 @@ figures and marks.
 
 1. **Given** a sold pass for a 3-event Season, **When** the admin opens the sales report, **Then**
    each of the 3 events shows 1 pass ticket and its share of the pass price as pass revenue, and the
-   Season shows 1 pass sold and the full pass price as revenue.
+   total row shows 3 pass tickets and the full pass price; the Seasons list and the Season's page
+   show 1 pass sold and the full pass price.
 2. **Given** the same, **When** the admin opens one event's attendee list, **Then** the pass order
    shows the Season's name in a Pass column, and single-ticket orders show it empty.
 3. **Given** the same, **When** the admin downloads the sales report or the attendee list as CSV,
@@ -281,8 +282,8 @@ sale with its games, prices and presale.
 - **FR-003**: Every event of a Season MUST be at the Season's venue; for a seated Season, every
   event MUST be a seated event on the Season's layout; for a general-admission Season, every event
   MUST be general admission. A save that breaks this MUST be refused, naming each event at fault.
-- **FR-004**: An event MUST belong to at most one Season, guaranteed under concurrent saves. A Season
-  MUST NOT take an event that is cancelled or whose start has passed.
+- **FR-004**: An event MUST belong to at most one Season, guaranteed under concurrent saves. A
+  Season MUST NOT take an event that is cancelled or whose start has passed.
 - **FR-005**: A Season's events, venue and layout MUST be changeable until its first pass is sold,
   and MUST NOT change after, guaranteed against a pass sold at the same moment; the refusal MUST say
   passes have been sold.
@@ -299,14 +300,15 @@ sale with its games, prices and presale.
 
 - **FR-009**: A seated Season MUST have one pass price per price level of its layout; a
   general-admission Season MUST have one pass price per ticket type name it sells, at least one, and
-  every event MUST have a ticket type of each priced name. Prices are USD, 0.00 or more, to the cent.
+  every event MUST have a ticket type of each priced name. Prices are USD, 0.00 or more, to the
+  cent.
 - **FR-010**: Putting a Season on sale MUST be refused while it has fewer than 2 events (not
   cancelled), a level with no price (seated), no priced name (general admission), or its sales end
   in the past; each refusal MUST name the field or level at fault.
 - **FR-011**: Prices MAY change while a Season is on sale; a pass already sold, its orders and its
   tickets MUST keep the prices they were sold at.
-- **FR-012**: The contract MUST state the price split for `042`: the pass price divided evenly across
-  the Season's events, rounded down to the cent, the remainder on the earliest event.
+- **FR-012**: The contract MUST state the price split for `042`: the pass price divided evenly
+  across the Season's events, rounded down to the cent, the remainder on the earliest event.
 
 **Presale**
 
@@ -326,33 +328,34 @@ sale with its games, prices and presale.
 
 **Refusals and forms**
 
-- **FR-016**: Every refusal MUST use the existing error shape and, when a field, event or level is at
-  fault, name it so the form shows the message beside it (`031`'s field details).
+- **FR-016**: Every refusal MUST use the existing error shape and, when a field, event or level is
+  at fault, name it so the form shows the message beside it (`031`'s field details).
 - **FR-017**: Both Admin apps MUST have a Seasons page in the navigation (list, create, edit), with
   the form behaviour of the event form as it stands on `main` when the implementation starts (a
-  red outline and "Required" on missing fields once #189 is merged), messages beside fields, focus on the first field at fault, every entered value kept after a refusal,
-  controls locked with the reason beside them when the Backend would refuse a change (events after
-  the first sale; everything on a cancelled Season).
-- **FR-018**: The Seasons list MUST show each Season's name, venue, sport and team, number of events,
-  status (Draft, On sale, Presale until …, Sales ended, Cancelled) and passes sold. Times are shown
-  and entered in the venue's time zone (`020`).
+  red outline and "Required" on missing fields once #189 is merged), messages beside fields, focus
+  on the first field at fault, every entered value kept after a refusal, controls locked with the
+  reason beside them when the Backend would refuse a change (events after the first sale; everything
+  on a cancelled Season).
+- **FR-018**: The Seasons list MUST show each Season's name, venue, sport and team, number of
+  events, status (Draft, On sale, Presale until …, Sales ended, Cancelled), passes sold and pass
+  revenue. Times are shown and entered in the venue's time zone (`020`).
 - **FR-019**: The event form and event page MUST say when an event belongs to a Season, naming it,
   and lock the layout and seating-kind controls with that reason.
 
 **Reports**
 
-- **FR-020**: The sales report MUST give, for each event, pass tickets sold and pass revenue (part of
-  its totals, not added to them), and list each Season with its passes sold and pass revenue;
-  refunded passes count nowhere. The attendee list MUST mark each order bought on a pass with its
-  Season's name.
-- **FR-021**: The CSV, Excel and PDF exports of the sales report and attendee list (`023`) MUST carry
-  the same pass figures and marks as the screen, in both Admin apps.
+- **FR-020**: The sales report MUST give, for each event and in its totals, pass tickets sold and
+  pass revenue (part of the tickets sold and revenue, not added to them); the Seasons list and a
+  Season's page MUST give its passes sold and pass revenue; refunded passes count nowhere. The
+  attendee list MUST mark each order bought on a pass with its Season's name.
+- **FR-021**: The CSV, Excel and PDF exports of the sales report and attendee list (`023`) MUST
+  carry the same pass figures and marks as the screen, in both Admin apps.
 
 **Parity, demo and contract**
 
-- **FR-022**: The Rust Admin app MUST have the same Seasons page and report changes as the Admin app,
-  page for page, in the same implementation; the cross-app page comparison MUST cover the Seasons
-  pages.
+- **FR-022**: The Rust Admin app MUST have the same Seasons page and report changes as the Admin
+  app, page for page, in the same implementation; the cross-app page comparison MUST cover the
+  Seasons pages.
 - **FR-023**: The demo reset MUST create one Season on sale: Louisville Cardinals Basketball at the
   KFC Yum! Center on its Basketball layout, at least 3 upcoming games, every level priced, and
   single tickets going on sale a few days after the reset, the same on every run.
@@ -412,8 +415,8 @@ sale with its games, prices and presale.
 
 ## Out of Scope
 
-- Everything a customer does: listing and browsing Seasons, the Season page and seat map, pass holds,
-  buying a pass, the presale refusal on single-ticket paths, My tickets (`042`).
+- Everything a customer does: listing and browsing Seasons, the Season page and seat map, pass
+  holds, buying a pass, the presale refusal on single-ticket paths, My tickets (`042`).
 - Seasons across venues or layouts, partial or flex passes, renewals, payment plans, priority for
   last season's holders, transferring or reselling passes (proposal non-goals).
 - Adding events after the first pass sale; reduced late prices.
