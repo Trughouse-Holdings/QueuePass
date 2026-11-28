@@ -16,7 +16,8 @@ import { setLocalDateTime } from './helpers/event-times';
 afterEach(() => vi.unstubAllGlobals());
 
 const PLAIN = { ...VENUE, id: 'v-plain', name: 'Plain Hall', seatingCapacity: 500 };
-// Spec 038: a venue with layouts; the form starts on General admission there too.
+// Spec 038: a venue with layouts; a new event starts on its first layout, so these tests of ticket
+// types choose General admission.
 const SEATED = { ...VENUE, seatingCapacity: 30 };
 const NAME_TAKEN = repeatedTypeNameMessage(1, 'floor', 0, 'Floor');
 const PATH = `/events/${EVENT.id}`;
@@ -52,6 +53,14 @@ async function chooseSeatedVenue() {
   setLocalDateTime('Starts', '2030-05-01T18:00');
   setLocalDateTime('Ends', '2030-05-01T21:00');
   await screen.findByRole('group', { name: 'Tickets and seating' });
+  await chooseGeneralAdmission();
+}
+
+/** The form starts on the venue's first layout; switch to General admission once it has. */
+async function chooseGeneralAdmission() {
+  const seating = await screen.findByRole('combobox', { name: 'Seating' });
+  await vi.waitFor(() => expect(seating).not.toHaveValue(''));
+  fireEvent.change(seating, { target: { value: '' } });
 }
 
 describe('Schedule event (FR-001 to FR-012, SC-002, SC-003, SC-006)', () => {
@@ -75,9 +84,49 @@ describe('Schedule event (FR-001 to FR-012, SC-002, SC-003, SC-006)', () => {
     fireEvent.change(screen.getByLabelText('Venue'), { target: { value: VENUE.id } });
     const tickets = await screen.findByRole('group', { name: 'Tickets and seating' });
     expect(tickets).toBeInTheDocument();
+    await chooseGeneralAdmission();
     expect(screen.getByTestId('seat-total')).toHaveTextContent(
       '0 of 30 seats assigned 30 seats not assigned to a ticket type',
     );
+  });
+
+  it('outlines each required field with no valid value in red at once, before its message', async () => {
+    stubApi(createRoutes());
+    at('/events/new', '/events/new');
+    const name = await screen.findByLabelText('Event name');
+    expect(name).toHaveClass('input--needed');
+    expect(screen.getByLabelText('Venue')).toHaveClass('input--needed');
+    expect(screen.queryByTestId('name-error')).toBeNull();
+    expect(name).not.toHaveAttribute('aria-invalid');
+
+    fireEvent.change(name, { target: { value: 'Full House' } });
+    expect(name).not.toHaveClass('input--needed');
+    await screen.findByRole('option', { name: /Yum Center/ });
+    fireEvent.change(screen.getByLabelText('Venue'), { target: { value: VENUE.id } });
+    expect(screen.getByLabelText('Venue')).not.toHaveClass('input--needed');
+
+    // The first layout is chosen: a level without a price is outlined; one with a price is not.
+    await screen.findByRole('table', { name: 'Prices by level' });
+    await vi.waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Front price' })).toHaveValue('90.00'),
+    );
+    expect(screen.getByRole('textbox', { name: 'Front price' })).not.toHaveClass('input--needed');
+    expect(screen.getByRole('textbox', { name: 'Upper price' })).toHaveClass('input--needed');
+    const upper = screen.getByRole('textbox', { name: 'Upper price' }).closest('td')!;
+    expect(within(upper).getByText('Required')).toHaveClass('required-tag');
+    const front = screen.getByRole('textbox', { name: 'Front price' }).closest('td')!;
+    expect(within(front).queryByText('Required')).toBeNull();
+
+    // General admission: an empty ticket type is outlined until it is filled in.
+    await chooseGeneralAdmission();
+    expect(screen.getByLabelText('Ticket type 1 name')).toHaveClass('input--needed');
+    expect(screen.getByTestId('type-1-required')).toHaveTextContent(
+      'Required: name, price, quantity',
+    );
+    typeLine(1, 'Floor', '80.00', '10');
+    expect(screen.queryByTestId('type-1-required')).toBeNull();
+    expect(screen.getByLabelText('Ticket type 1 name')).not.toHaveClass('input--needed');
+    expect(screen.getByLabelText('Ticket type 1 price')).not.toHaveClass('input--needed');
   });
 
   it('shows an empty name beside the field, sends nothing, and focuses the name', async () => {

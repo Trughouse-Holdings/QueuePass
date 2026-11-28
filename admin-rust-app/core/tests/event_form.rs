@@ -1388,7 +1388,9 @@ fn venue_layouts() -> Vec<LayoutSummary> {
     layouts(&[fixtures::arena_summary(), fixtures::club_summary()])
 }
 
-/// `chooseSeatedVenue`: name, the venue with layouts, times; tickets and seating show.
+/// `chooseSeatedVenue`: name, the venue with layouts, times; tickets and seating show. A new
+/// event starts on the venue's first layout, so these tests of ticket types choose General
+/// admission.
 fn seated_venue_form(capacity: u64, name: &str) -> Form {
     let mut f = new_form(vec![seated_venue(capacity), plain()]);
     f.set_name(name);
@@ -1398,6 +1400,8 @@ fn seated_venue_form(capacity: u64, name: &str) -> Form {
     assert!(!f.show_tickets_and_seating());
     f.layouts_loaded(venue_layouts());
     assert!(f.show_tickets_and_seating());
+    assert!(f.seated());
+    f.choose_layout(None);
     f
 }
 
@@ -2290,8 +2294,9 @@ fn the_venues_layouts_and_general_admission_are_offered() {
             ("l-club".to_string(), "Club (12 seats)".to_string()),
         ]
     );
-    assert!(!f.seated());
-    assert_eq!(f.seating.layout_id, None);
+    // A new event starts on the venue's first layout.
+    assert!(f.seated());
+    assert_eq!(f.seating.layout_id.as_deref(), Some("l-arena"));
     choose(&mut f, "l-arena");
     assert!(f.seated());
     assert_eq!(
@@ -2688,7 +2693,8 @@ fn sections_a_count_needs_load_by_themselves_and_a_failed_read_is_asked_again() 
 // ---------------------------------------------------------------- event-seating-create.test.tsx
 
 #[test]
-fn a_venue_with_layouts_starts_on_general_admission_with_types_and_a_total() {
+fn a_venue_with_layouts_starts_on_its_first_layout_and_general_admission_still_has_types_and_a_total()
+ {
     let mut f = new_form(vec![
         seated_venue(70),
         fixtures::venue("v-plain", "Plain Hall", 22090),
@@ -2697,6 +2703,9 @@ fn a_venue_with_layouts_starts_on_general_admission_with_types_and_a_total() {
     f.choose_venue(VENUE_ID, now());
     f.layouts_loaded(venue_layouts());
     assert!(f.show_seating_select());
+    assert_eq!(f.seating.layout_id.as_deref(), Some("l-arena"));
+    assert!(f.seated());
+    f.choose_layout(None);
     assert!(!f.seated());
     assert_eq!(f.seated_total_note(), None);
     choose(&mut f, "l-club");
@@ -2823,4 +2832,68 @@ fn reading_the_api_resolves_local_times_as_the_shared_helper() {
     );
     assert_eq!(Occurrence::Second.as_str(), "second");
     assert_eq!(TimeField::DoorsOpenAt.key(), "doorsOpenAt");
+}
+
+// ---------------------------------------------------------------- red outline and "Required"
+
+#[test]
+fn outlines_each_required_field_with_no_valid_value_in_red_at_once_before_its_message() {
+    let mut f = new_form(vec![seated_venue(70)]);
+    assert!(f.needed("name"));
+    assert!(f.needed("locationId"));
+    assert!(f.field_hint("name").is_empty());
+    assert!(!f.field_invalid("name"));
+
+    f.set_name("Full House");
+    assert!(!f.needed("name"));
+    f.choose_venue(VENUE_ID, now());
+    assert!(!f.needed("locationId"));
+    set_local(&mut f, TimeField::StartsAt, "2030-05-01T18:00");
+    set_local(&mut f, TimeField::EndsAt, "2030-05-01T21:00");
+
+    // The first layout is chosen: a level without a price is outlined; one with a price is not.
+    f.layouts_loaded(venue_layouts());
+    choose(&mut f, "l-arena");
+    assert_eq!(price_box(&f, "Front").as_deref(), Some("90.00"));
+    assert!(!f.needed("levelPrices.l-front"));
+    assert!(f.needed("levelPrices.l-upper"));
+
+    // General admission: an empty ticket type is outlined until it is filled in.
+    f.choose_layout(None);
+    assert!(f.needed("tiers.0.name"));
+    assert_eq!(
+        f.type_required(0).as_deref(),
+        Some("Required: name, price, quantity")
+    );
+    type_line(&mut f, 0, "Floor", "80.00", Some("10"));
+    assert_eq!(f.type_required(0), None);
+    assert!(!f.needed("tiers.0.name"));
+    assert!(!f.needed("tiers.0.price"));
+}
+
+#[test]
+fn choosing_the_layout_already_chosen_keeps_its_prices() {
+    let mut f = arena_form();
+    choose(&mut f, "l-arena");
+    f.set_level_price("l-upper", "20.00");
+    f.choose_layout(Some("l-arena"));
+    assert_eq!(price_box(&f, "Upper").as_deref(), Some("20.00"));
+}
+
+#[test]
+fn an_edit_keeps_the_events_own_seating_when_the_layouts_load() {
+    let mut f = Form::edit(EVENT_ID);
+    f.location_id = VENUE_ID.into();
+    f.layouts_loaded(venue_layouts());
+    assert_eq!(f.seating.layout_id, None);
+}
+
+#[test]
+fn a_venue_whose_layouts_have_no_seats_starts_on_general_admission() {
+    let mut empty = fixtures::arena_summary();
+    empty["seatCount"] = json!(0);
+    let mut f = new_form(vec![seated_venue(70)]);
+    f.choose_venue(VENUE_ID, now());
+    f.layouts_loaded(layouts(&[empty]));
+    assert_eq!(f.seating.layout_id, None);
 }

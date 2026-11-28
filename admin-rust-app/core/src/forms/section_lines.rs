@@ -13,6 +13,24 @@ use std::collections::HashMap;
 use serde_json::{Value, json};
 
 use crate::api::types::LayoutDetail;
+use crate::seating::geometry::LAYOUT_LIMITS;
+
+/// Which of a section line's boxes have no valid value yet (each outlined in red).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LineNeeded {
+    pub name: bool,
+    pub rows: bool,
+    pub seats_per_row: bool,
+    pub level: bool,
+}
+
+/// `wholeIn` (`SectionLines.tsx`): a whole number from 1 to `max`, as typed.
+pub fn whole_in(s: &str, max: usize) -> bool {
+    let t = js_trim(s);
+    !t.is_empty()
+        && t.bytes().all(|b| b.is_ascii_digit())
+        && t.parse::<u64>().is_ok_and(|n| n >= 1 && n <= max as u64)
+}
 pub use crate::api::types::LevelColor;
 
 /// `LEVEL_COLORS` (`packages/shared/src/seating.ts`): the shared theme's 12 level colors, in the
@@ -177,6 +195,27 @@ impl LinesDraft {
     /// `totalSeats(draft.lines)`.
     pub fn total_seats(&self) -> f64 {
         total_seats(&self.lines)
+    }
+
+    /// A required box with no valid value yet is outlined in red at once (`SectionLines.tsx`):
+    /// level `i`'s name.
+    pub fn level_name_needed(&self, i: usize) -> bool {
+        self.levels
+            .get(i)
+            .is_some_and(|l| js_trim(&l.name).is_empty())
+    }
+
+    /// Section line `i`'s boxes with no valid value yet: name, rows, seats per row, price level.
+    pub fn line_needed(&self, i: usize) -> LineNeeded {
+        let Some(l) = self.lines.get(i) else {
+            return LineNeeded::default();
+        };
+        LineNeeded {
+            name: js_trim(&l.name).is_empty(),
+            rows: !whole_in(&l.rows, LAYOUT_LIMITS.max_rows),
+            seats_per_row: !whole_in(&l.seats_per_row, LAYOUT_LIMITS.max_seats_per_row),
+            level: !self.named_levels().contains(&l.level),
+        }
     }
 
     /// `named` (`SectionLines.tsx`): the levels' names that are not blank, untrimmed, in order.

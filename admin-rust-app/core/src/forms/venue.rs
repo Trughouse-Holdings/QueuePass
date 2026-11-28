@@ -458,6 +458,26 @@ impl VenueFormState {
             .map_or(DEFAULT_TIME_ZONE.to_string(), |l| l.time_zone.to_string())
     }
 
+    /// A required field with no valid value yet is outlined in red at once (`LocationForm.tsx`),
+    /// by its control's id.
+    pub fn needed(&self, id: &str) -> bool {
+        let send = self.send_address();
+        match id {
+            "name" => js_trim(&self.name).is_empty(),
+            "street" => send && js_trim(&self.address.street).is_empty(),
+            "city" => send && js_trim(&self.address.city).is_empty(),
+            "state" => send && self.address.state.is_empty(),
+            "zip" => send && !is_zip(js_trim(&self.address.zip)),
+            "timeZone" => !self.is_edit() && self.zone_choice.is_empty(),
+            "seatingCapacity" => {
+                // `wholeAtLeastOne`: digits only, and not zero.
+                let t = js_trim(&self.seating_capacity);
+                !(t.bytes().all(|b| b.is_ascii_digit()) && t.bytes().any(|b| b != b'0'))
+            }
+            _ => false,
+        }
+    }
+
     /// `sendAddress` (spec 024 R3): always on create; on edit when the address changed, or when the
     /// loaded (non-legacy) venue's address is not verified, so it is checked again.
     pub fn send_address(&self) -> bool {

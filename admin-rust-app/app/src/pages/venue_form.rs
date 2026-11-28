@@ -150,6 +150,13 @@ fn VenueFormPage(id: Option<String>) -> impl IntoView {
         });
     };
 
+    // A required field with no valid value yet: its control is outlined in red at once, and the
+    // shared theme puts "Required" beside its label.
+    let needed = move |id: &'static str| {
+        let needed = Memo::new(move |_| state.with(|s| s.needed(id)));
+        move || needed.get().then_some("input--needed")
+    };
+
     let text_field = move |id: &'static str,
                            label: &'static str,
                            placeholder: &'static str,
@@ -165,6 +172,7 @@ fn VenueFormPage(id: Option<String>) -> impl IntoView {
                     inputmode=numeric.then_some("numeric")
                     autocomplete=autocomplete
                     prop:value=move || state.with(get)
+                    class=needed(id)
                     placeholder=placeholder
                     on:input=move |ev| {
                         let value = event_target_value(&ev);
@@ -238,6 +246,7 @@ fn VenueFormPage(id: Option<String>) -> impl IntoView {
                             id="state"
                             autocomplete="address-level1"
                             prop:value=state_choice
+                            class=needed("state")
                             on:change=move |ev| {
                                 let value = event_target_value(&ev);
                                 state.update(|s| s.address.state = value);
@@ -263,6 +272,7 @@ fn VenueFormPage(id: Option<String>) -> impl IntoView {
                         <select
                             id="timeZone"
                             prop:value=zone_choice
+                            class=needed("timeZone")
                             aria-invalid=move || state.with(|s| s.zone_invalid()).then_some("true")
                             aria-describedby=move || state.with(|s| s.zone_described_by())
                             on:change=move |ev| {
@@ -347,6 +357,7 @@ fn VenueFormPage(id: Option<String>) -> impl IntoView {
                                     type="number"
                                     min="1"
                                     prop:value=move || state.with(|s| s.seating_capacity.clone())
+                                    class=needed("seatingCapacity")
                                     placeholder="22090"
                                     on:input=move |ev| {
                                         let value = event_target_value(&ev);

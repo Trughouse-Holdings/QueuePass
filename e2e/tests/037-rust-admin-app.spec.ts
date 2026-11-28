@@ -391,6 +391,13 @@ async function picture(page: Page, type: 'image/png' | 'image/jpeg', name: strin
   return { name, mimeType: type, buffer: Buffer.from(b64, 'base64') };
 }
 
+/** A new event starts on the venue's first layout; switch to General admission once it has. */
+async function chooseGeneralAdmission(page: Page): Promise<void> {
+  const seating = page.getByLabel('Seating', { exact: true });
+  await expect(seating).not.toHaveValue('');
+  await seating.selectOption({ label: 'General admission' });
+}
+
 test('037 S3: events scheduled in the Rust Admin app, general admission and on a layout, read the same in the React Admin app', async ({
   browser,
 }, testInfo) => {
@@ -428,6 +435,7 @@ test('037 S3: events scheduled in the Rust Admin app, general admission and on a
       .selectOption({ label: `${venueName} (30 seats)` });
     await fillEventDateTime(rust, 'Starts', `${day}T19:00`);
     await fillEventDateTime(rust, 'Ends', `${day}T22:00`);
+    await chooseGeneralAdmission(rust);
     await rust.getByLabel('Ticket type 1 name', { exact: true }).fill('Floor');
     await rust.getByLabel('Ticket type 1 price', { exact: true }).fill('40.00');
     await rust.getByLabel('Ticket type 1 quantity', { exact: true }).fill('20');
@@ -469,6 +477,7 @@ test('037 S3: events scheduled in the Rust Admin app, general admission and on a
       .selectOption({ label: `${venueName} (30 seats)` });
     await fillEventDateTime(rust, 'Starts', `${day}T20:00`);
     await fillEventDateTime(rust, 'Ends', `${day}T23:00`);
+    await chooseGeneralAdmission(rust);
     await rust.getByLabel('Ticket type 1 name', { exact: true }).fill('Floor');
     await rust.getByLabel('Ticket type 1 price', { exact: true }).fill('40.00');
     await rust.getByLabel('Ticket type 1 quantity', { exact: true }).fill('20');

@@ -102,6 +102,13 @@ fn invalid_memo(state: FormSignal, key: &'static str) -> Memo<bool> {
     Memo::new(move |_| state.with(|s| s.field_invalid(key)))
 }
 
+/// A required field with no valid value yet: its control is outlined in red at once, and the
+/// shared theme puts "Required" beside its label.
+fn needed_class(state: FormSignal, key: &'static str) -> impl Fn() -> Option<&'static str> + Copy {
+    let needed = Memo::new(move |_| state.with(|s| s.needed(key)));
+    move || needed.get().then_some("input--needed")
+}
+
 #[component]
 fn EventFormPage(id: Option<String>) -> impl IntoView {
     let auth = use_auth();
@@ -259,6 +266,7 @@ fn EventFormPage(id: Option<String>) -> impl IntoView {
     let submit_error = Memo::new(move |_| state.with(|s| s.submit_error()));
     let busy = Memo::new(move |_| state.with(|s| s.busy));
     let limit_invalid = invalid_memo(state, "maxTicketsPerCustomer");
+    let limit_needed = needed_class(state, "maxTicketsPerCustomer");
 
     view! {
         <section>
@@ -311,6 +319,7 @@ fn EventFormPage(id: Option<String>) -> impl IntoView {
                                     ev.prevent_default();
                                     edit(state, |s| s.limit_invalid());
                                 }
+                                class=limit_needed
                                 aria-invalid=move || limit_invalid.get().then_some("true")
                                 aria-describedby=move || {
                                     limit_invalid.get().then_some("maxTicketsPerCustomer-error")
@@ -407,6 +416,7 @@ fn VenueAndTimes(state: FormSignal) -> impl IntoView {
                         let value = event_target_value(&ev);
                         edit(state, |s| s.set_name(&value));
                     }
+                    class=needed_class(state, "name")
                     aria-invalid=move || name_invalid.get().then_some("true")
                     aria-describedby=move || name_invalid.get().then_some("name-error")
                 />
@@ -423,6 +433,7 @@ fn VenueAndTimes(state: FormSignal) -> impl IntoView {
                         let value = event_target_value(&ev);
                         edit(state, |s| s.choose_venue(&value, now_utc()));
                     }
+                    class=needed_class(state, "locationId")
                     aria-invalid=move || venue_invalid.get().then_some("true")
                     aria-describedby=move || venue_invalid.get().then_some("locationId-error")
                 >
@@ -559,6 +570,7 @@ fn DoorsBefore(state: FormSignal) -> impl IntoView {
                         edit(state, |s| s.set_doors_offset(minutes));
                     }
                 }
+                class=needed_class(state, "doorsOpenAt")
                 aria-invalid=move || invalid.get().then_some("true")
                 aria-describedby=move || {
                     if invalid.get() { "doorsOpenAt-error doorsOpenAt-live" } else { "doorsOpenAt-live" }
@@ -607,6 +619,7 @@ fn DoorsBefore(state: FormSignal) -> impl IntoView {
 fn DateTimeFields(state: FormSignal, field: TimeField, name: &'static str) -> impl IntoView {
     let key = field.key();
     let invalid = invalid_memo(state, key);
+    let needed = needed_class(state, key);
     let date_id = format!("{key}-date");
     let time_id = format!("{key}-time");
     view! {
@@ -622,6 +635,7 @@ fn DateTimeFields(state: FormSignal, field: TimeField, name: &'static str) -> im
                         let value = event_target_value(&ev);
                         edit(state, |s| s.set_date(field, &value));
                     }
+                    class=needed
                     aria-invalid=move || invalid.get().then_some("true")
                     aria-describedby=move || invalid.get().then(|| format!("{key}-error"))
                 />
@@ -638,6 +652,7 @@ fn DateTimeFields(state: FormSignal, field: TimeField, name: &'static str) -> im
                         let value = event_target_value(&ev);
                         edit(state, |s| s.set_time(field, &value));
                     }
+                    class=needed
                     aria-invalid=move || invalid.get().then_some("true")
                     aria-describedby=move || invalid.get().then(|| format!("{key}-error"))
                 />
@@ -782,6 +797,7 @@ fn GeneralAdmission(state: FormSignal) -> impl IntoView {
                     let value = event_target_value(&ev);
                     edit(state, |s| s.set_total(&value));
                 }
+                class=needed_class(state, "totalTicketCapacity")
                 aria-invalid=move || total_invalid.get().then_some("true")
                 aria-describedby=move || total_invalid.get().then_some("totalTicketCapacity-error")
             />
@@ -804,6 +820,7 @@ fn type_input(
     let n = index + 1;
     let what = field.key();
     let invalid = Memo::new(move |_| state.with(|s| s.type_invalid(index, field)));
+    let needed = Memo::new(move |_| state.with(|s| s.needed(&format!("tiers.{index}.{what}"))));
     let (input_mode, kind, min) = match field {
         TypeField::Name => (None, None, None),
         TypeField::Price => (Some("decimal"), None, None),
@@ -833,6 +850,7 @@ fn type_input(
                 edit(state, |s| s.set_type(index, field, &value));
             }
             id=format!("type-{n}-{what}")
+            class=move || needed.get().then_some("input--needed")
             aria-invalid=move || invalid.get().then_some("true")
             aria-describedby=move || invalid.get().then(|| format!("type-{n}-error"))
             on:blur=move |_| edit(state, |s| s.blur(&format!("tiers.{index}.{what}")))
@@ -847,6 +865,7 @@ fn type_line(state: FormSignal, index: usize) -> impl IntoView {
     let show_remove = Memo::new(move |_| state.with(|s| s.show_remove_type()));
     let lock = Memo::new(move |_| state.with(|s| s.remove_type_title(index)));
     let sold = Memo::new(move |_| state.with(|s| s.type_sold_hint(index)));
+    let required = Memo::new(move |_| state.with(|s| s.type_required(index)));
     view! {
         <div class="form__row">
             {type_input(state, index, TypeField::Name, "Floor")}
@@ -871,6 +890,21 @@ fn type_line(state: FormSignal, index: usize) -> impl IntoView {
                     })
             }}
         </div>
+        {move || {
+            required
+                .get()
+                .map(|text| {
+                    view! {
+                        <span
+                            class="required-tag"
+                            aria-hidden="true"
+                            data-testid=format!("type-{n}-required")
+                        >
+                            {text}
+                        </span>
+                    }
+                })
+        }}
         {move || sold.get().map(|text| view! { <span class="field__hint">{text}</span> })}
         {hint(move || format!("type-{n}-error"), move || state.with(|s| s.type_hint(index)))}
     }

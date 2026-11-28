@@ -635,6 +635,32 @@ select:focus {
 input::placeholder {
   color: var(--text-muted);
 }
+/* A field with a problem, and a required field with no valid value yet, have a red outline. */
+input[aria-invalid='true'],
+select[aria-invalid='true'],
+input.input--needed,
+select.input--needed {
+  border-color: var(--danger);
+}
+/* ...and says so: a small bold "Required" beside its label, or under a box with no label. It is
+   for the eye only (empty alternative text), so it never joins the field's accessible name. */
+.field:has(> input.input--needed, > select.input--needed) > label::after {
+  content: 'Required' / '';
+  margin-left: 8px;
+}
+.field:has(> input.input--needed, > select.input--needed) > label::after,
+.required-tag {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--danger);
+}
+input[aria-invalid='true']:focus,
+select[aria-invalid='true']:focus,
+input.input--needed:focus,
+select.input--needed:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
+}
 /* Spec 007: the text-input rules above would stretch a checkbox or radio into an empty bar and
    strip its native look, so each keeps its own mark, at a 22-pixel size (spec 008 FR-006). */
 input[type='checkbox'],

@@ -636,3 +636,9 @@
 .editor-panel .form__actions > .btn {
   flex-shrink: 0;
 }
+
+/* A section line's columns are narrow: its "Required" (shared theme) goes under the label. */
+.form__row--section .field > label::after {
+  display: block;
+  margin-left: 0;
+}

@@ -1464,12 +1464,25 @@ impl<F: ImageFile> EventFormState<F> {
     }
 
     /// `listVenueLayouts(locationId)` answered.
+    /// A new event starts on the venue's first layout that has seats (the list is by name); the
+    /// admin can still choose General admission. An edit keeps the event's own seating.
     pub fn layouts_loaded(&mut self, layouts: Vec<LayoutSummary>) {
         if self.location_id.is_empty() {
             return;
         }
+        let first = if self.event_id.is_none() {
+            layouts
+                .iter()
+                .find(|l| l.seat_count > 0)
+                .map(|l| l.id.clone())
+        } else {
+            None
+        };
         self.venue_layouts = layouts;
         self.layouts_ready = true;
+        if let Some(layout_id) = first {
+            self.choose_layout_inner(Some(layout_id));
+        }
     }
 
     /// `listVenueLayouts` failed: counts as none.
@@ -1897,8 +1910,12 @@ impl<F: ImageFile> EventFormState<F> {
 
     /// The Seating select changed: another layout, or general admission (`None`); prices and
     /// seats off sale restart.
+    /// The layout already chosen (a new event starts on one) keeps its prices.
     pub fn choose_layout(&mut self, layout_id: Option<&str>) {
         self.clear_server();
+        if self.seating.layout_id.as_deref() == layout_id {
+            return;
+        }
         self.choose_layout_inner(layout_id.map(str::to_string));
     }
 
@@ -2654,6 +2671,23 @@ impl<F: ImageFile> EventFormState<F> {
     /// `aria-invalid` on a field's control.
     pub fn field_invalid(&self, key: &str) -> bool {
         !self.field_hint(key).is_empty()
+    }
+
+    /// A required field with no valid value yet is outlined in red at once; its message waits
+    /// (R5).
+    pub fn needed(&self, key: &str) -> bool {
+        self.preview_all().has(key)
+    }
+
+    /// Ticket type `index`'s "Required: name, price" line under its boxes, when any is needed.
+    pub fn type_required(&self, index: usize) -> Option<String> {
+        let all = self.preview_all();
+        let boxes: Vec<&str> = [TypeField::Name, TypeField::Price, TypeField::Quantity]
+            .into_iter()
+            .map(TypeField::key)
+            .filter(|f| all.has(&format!("tiers.{index}.{f}")))
+            .collect();
+        (!boxes.is_empty()).then(|| format!("Required: {}", boxes.join(", ")))
     }
 
     /// A time field's `{key}-error` hint, less what its notes already say.
