@@ -282,6 +282,8 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
   - **Done 2026-11-28**: Nate walked the Seasons pages in both Admin apps (React on 5173, Rust on
     5176) on the fresh-clone stack at 0b71feb with the demo reset loaded, and confirmed: "ok i tested
     it, it works". Selling a pass (S5's locked events, S9's non-zero figures) waits for 042.
+    Re-checked after the rebase onto #189 (c18e43a, rebuilt stack): the Season, event and venue
+    forms' red outline and "Required" in both apps; Nate: "it all passed".
 - [X] T051 Independent review by a Claude session that did not write the implementation; fix the
   findings; record the review and any finding left open in the impl PR description
   - **Done 2026-11-28** (one round): no blocking, 5 should-fix, 9 minor. Fixed in 3f2a104, ab0c0d1,
