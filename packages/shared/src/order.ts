@@ -38,6 +38,11 @@ export interface Order {
   createdAt: string;
   refundedAt: string | null;
   tickets: Ticket[];
+  /**
+   * Spec 041 (research R8): the Season pass the order was bought on; `null` for a single-ticket
+   * order. Optional until 041's implementation; a missing value means `null`.
+   */
+  seasonPass?: { id: string; seasonId: string; seasonName: string } | null;
 }
 
 export interface OrderInput {
@@ -150,6 +155,10 @@ export interface EventSales {
   tiers: TierSales[];
   /** Spec 038 (R17): a seated event's sales by price level as sold; empty for general admission. */
   levels: LevelSales[];
+  /** Spec 041 (R8): of `ticketsSold`, the valid tickets bought on a pass; a missing value means 0. */
+  passTicketsSold?: number;
+  /** Spec 041 (R8): of `revenue`, the confirmed pass orders; a missing value means '0.00'. */
+  passRevenue?: string;
 }
 
 export interface SalesReport {
@@ -160,6 +169,10 @@ export interface SalesReport {
     ticketsSold: number;
     checkedIn: number;
     revenue: string;
+    /** Spec 041 (R8): as `EventSales.passTicketsSold`, over all events. */
+    passTicketsSold?: number;
+    /** Spec 041 (R8): as `EventSales.passRevenue`, over all events. */
+    passRevenue?: string;
   };
   events: EventSales[];
 }

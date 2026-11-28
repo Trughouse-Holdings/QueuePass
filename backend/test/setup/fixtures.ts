@@ -213,7 +213,7 @@ export async function orderWithTickets(
 
 /** Codes from the ticket alphabet (no I, O, 0, or 1), unique per run. */
 let codeCounter = 0;
-function testTicketCode(): string {
+export function testTicketCode(): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   codeCounter += 1;
   let suffix = '';
@@ -359,7 +359,7 @@ export interface InsertedLayout {
 }
 
 /** Row `n`'s label: A, B, … Z, then AA, AB, … */
-const rowLabel = (n: number): string =>
+export const rowLabel = (n: number): string =>
   n <= 26
     ? String.fromCharCode(64 + n)
     : rowLabel(Math.floor((n - 1) / 26)) + rowLabel(((n - 1) % 26) + 1);

@@ -73,18 +73,26 @@ describe('Contract route and role coverage', () => {
 
   /**
    * Spec 026 research R4, R10: the routes marked `@AttemptLimit(kind)` are exactly the operations
-   * with `x-attempt-limit: kind`, and each of those declares its `429`.
+   * with `x-attempt-limit: kind`, and each of those declares its `429`. Spec 041 (research R14): a
+   * planned operation declares its limit and `429` now, and is limited once it is served.
    */
   it('limits exactly the operations the contract marks with x-attempt-limit', () => {
     routes();
     const declared = operations.flatMap((o) => {
       const node = contract.paths[o.path][o.method.toLowerCase()];
       const kind = node['x-attempt-limit'] as string | undefined;
-      return kind ? [{ route: key(o), kind, has429: '429' in node.responses }] : [];
+      return kind
+        ? [{ route: key(o), kind, has429: '429' in node.responses, planned: o.planned !== null }]
+        : [];
     });
     expect(declared.filter((d) => !d.has429)).toEqual([]);
     expect(Object.fromEntries([...limits].sort())).toEqual(
-      Object.fromEntries(declared.map((d) => [d.route, d.kind]).sort()),
+      Object.fromEntries(
+        declared
+          .filter((d) => !d.planned)
+          .map((d) => [d.route, d.kind])
+          .sort(),
+      ),
     );
     // The feature's two operations, so an empty match on both sides cannot pass.
     expect([...limits.values()].sort()).toEqual(['BUY', 'HOLD']);

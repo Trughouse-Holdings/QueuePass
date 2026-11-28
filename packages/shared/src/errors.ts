@@ -87,6 +87,21 @@ export const ERROR_CODES = [
   // Spec 039: a layout saved from the editor was changed since the editor read it. Added ahead of
   // the implementation, so the list matches the contract.
   'LAYOUT_CHANGED',
+  // Spec 041 (research R4): an event in a Season can't make this change, or is in another Season;
+  // a Season with passes sold can't change its events, venue or layout, or be deleted; a write to a
+  // cancelled Season; publishing or deleting a Season that is not a draft. Added ahead of the
+  // implementation, so the list matches the contract.
+  'EVENT_IN_SEASON',
+  'SEASON_HAS_PASSES',
+  'SEASON_CANCELLED',
+  'SEASON_NOT_DRAFT',
+  // Spec 041/042: a Season that is not on sale; a single-ticket hold or order during a Season's
+  // presale; a pass hold or purchase after the Season's sales end; more passes than a customer may
+  // have. Served by spec 042 (cancelling a draft by 041); added ahead, so the list matches.
+  'SEASON_NOT_ON_SALE',
+  'SEASON_PRESALE',
+  'SEASON_SALES_CLOSED',
+  'PASS_LIMIT_REACHED',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

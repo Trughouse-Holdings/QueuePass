@@ -240,6 +240,12 @@ const LABELS: [table: string, one: string, many: string][] = [
   ['Ticket', 'ticket', 'tickets'],
   ['SeatReservation', 'seat reservation', 'seat reservations'],
   ['SeatHold', 'seat hold', 'seat holds'],
+  // Spec 041 (data-model.md): Seasons, their events and prices, passes, and pass holds.
+  ['Season', 'season', 'seasons'],
+  ['SeasonEvent', 'season event', 'season events'],
+  ['SeasonPrice', 'season price', 'season prices'],
+  ['SeasonPass', 'season pass', 'season passes'],
+  ['SeasonPassHold', 'season pass hold', 'season pass holds'],
 ];
 
 function removedLine(removed: RemovedCounts): string {

@@ -1,41 +1,14 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.11.1 -> 3.12.0 (MINOR): spec 040 adds the Rust Customer app, a fifth front end, which
-  signs in through its own client in the Customer app's realm.
-Problem: issue #175. John asked for Rust versions of the Admin and Customer apps (2026-11-10); the
-  Rust Admin app is spec 037. On 2026-11-15 Mahdi (product owner) decided the Rust Customer app
-  uses the same customer accounts as the Customer app, so a customer's orders, tickets, and holds
-  show in both: it signs in to realm queuepass-customer-app through its own public client
-  customer-rust-app. Principle V requires each front end to sign in through its own realm, so that
-  signing out of one app never signs another out; two clients in one realm share one Keycloak
-  session.
+Version: 3.12.0 -> 3.12.1 (PATCH): roadmap reservations only.
+Problem: issues #192 and #193. The Season Pass proposal (Nate and Mahdi) splits season passes into
+  an admin spec and a customer spec built in parallel on one shared contract. Spec 041's spec PR
+  carries that contract and marks the customer operations `x-planned: '042'`, so both numbers are
+  reserved together.
 Changed:
-  - Preamble: eight long-running parts, five web front ends.
-  - Principle V: an exception for the Rust Customer app's client in the Customer app's realm, with
-    the risk accepted explicitly (signing out of either Customer app ends the shared session and
-    releases the account's holds; signing in to one can sign the other in); the Customer and Rust
-    Customer apps require `customer`; no other app may share a realm.
-  - Principle VI: customer-rust-app joins the workspaces; the Rust view-crate coverage exclusion
-    and its replacement control (browser journeys) are widened to it.
-  - Principle VII: the red exception is widened to the Rust Customer app: the Rust Admin app's red
-    look tokens over the Customer app's stylesheets, and the Rust Admin app's red sign-in tokens.
-  - Stack table (Language, Repository, Front ends, Identity, Front-end tests, Lint, CI), the
-    OIDC clients and CORS rules (five origins), and the test-accounts note.
-  - Roadmap: row 040 reserved; the next free number is 041.
-Why MINOR: a principle is materially expanded (a new front end and a Principle V exception);
-  nothing that complied before stops complying, so not MAJOR.
-Weakened control and its accepted risk: one realm per app (Principle V) no longer holds between the
-  two Customer apps. The risk is mostly to convenience, not to access: both clients give the same
-  customer the same `customer` role in the same realm, the Backend's token checks are unchanged,
-  and every other pair of apps keeps its own realm. The residual window: after logging out of one
-  Customer app, the other keeps API access until its access token expires (Keycloak's lifespan,
-  5 minutes by default), then its renewal is refused. Accepted by Mahdi on 2026-11-15.
-Impact: spec 040 (#175) only. No API or schema change; no change to the Customer app, the Rust
-  Admin app, or any other spec. Seed, Backend tests, Compose, the login theme (`login.css` gains a
-  `.qp-app--customer-rust-app` rule over the existing red sign-in tokens, `messages_en.properties`
-  its audience line, with their tests), and browser tests gain the client, origin, and service in
-  040's implementation PR. The README's version reference follows.
-  Templates: none need updating.
+  - Roadmap: rows 041-season-setup and 042-season-pass-purchase; the next free number is 043.
+Why PATCH: reservations only; nothing that is required changes.
+Impact: specs 041 (#192) and 042 (#193). Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -390,7 +363,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `041`.
+number is a pull request against this table. The next free number is `043`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -434,6 +407,8 @@ number is a pull request against this table. The next free number is `041`.
 | `038-seat-maps` | Several named seating layouts per venue, each a map of sections placed in the building, labelled rows and seats, imported from a layout file or made from section lines; 1 to 12 price levels per layout by section, row or seat; a seated event uses one layout, sets a price per level and takes sections, rows or seats off sale, and has no ticket types; its capacity is its seats on sale; one hold and one order may mix levels, each ticket at its own price; the Customer app's venue map colored by price with a price filter, a zoom into a section and a Sections list for keyboard and screen readers; the Admin app's Layouts card, Seating section and live map by seat state; today's venues and seated events carried over to a "Standard" layout; the KFC Yum! Center's four layouts and four demo events in the reset (#165) | `007`, `015`, `016`, `017`, `023`, `029`, `031`, `033`, `034`, `035` |
 | `039-layout-editor` | The Admin app's layout editor: a block generator for sections of rows and seats, drag and rotate sections, paint price levels by section, row or seat, duplicate and edit layouts nobody has bought from | `038` |
 | `040-rust-customer-app` | A second Customer app written in Rust (`customer-rust-app/`, port 5177) running beside the unchanged Customer app, against the same API and data; it signs in to the Customer app's realm through its own client `customer-rust-app`, so customers are the same accounts with the same orders, tickets, and holds in both, and the two Customer apps share one sign-in session (Principle V's exception); red on every screen, its sign-in included, with the Rust Admin app's red, and named "QueuePass Tickets (Rust)"; otherwise the same screens and layout as the Customer app, and every behaviour of the Customer app on `main` when its implementation PR opens (seat maps, holds and the cart, selling until the end, past events, My tickets, live entry codes, calendar files), checked item by item; every Customer browser journey runs against both; no API change (#175) | `001`, `003`, `004`, `005`, `006`, `007`, `008`, `012`, `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `025`, `026`, `027`, `028`, `029`, `030`, `032`, `033`, `034`, `036`, `037`, `038`, `039` |
+| `041-season-setup` | Admins group upcoming events at one venue, on one layout or general admission, into a Season (name, optional sport from a fixed list and team, sales end, optional presale end, passes per customer), price it per level or ticket type name, put it on sale, edit it (events locked after the first pass sale), delete a draft, and cancel it, refunding every pass in one step; an event in a Season keeps its layout, seating kind and priced ticket type names; while a Season's presale runs its events sell only passes; the sales report and attendee list (and their exports) mark pass sales; both Admin apps; one demo Season; the shared contract for 041 and 042 (data model, migration, API, test fixture) in its spec PR (#192) | `004`, `005`, `016`, `017`, `020`, `023`, `029`, `031`, `035`, `037`, `038` |
+| `042-season-pass-purchase` | Customers find Seasons on sale in a Season tickets sub-tab of Events, grouped by sport and team, see a Season's events and its seat map (a seat open only if open at every event), hold one seat at every event under one 5-minute timer (all or nothing), enter the name on tickets, and buy the pass: one order and ticket per event, the pass price split evenly, each ticket scanning like any other; single-ticket holds and orders refused during a Season's presale; both Customer apps (#193) | `015`, `016`, `017`, `018`, `026`, `033`, `038`, `040`, `041` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -487,4 +462,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.12.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-15
+**Version**: 3.12.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-27
