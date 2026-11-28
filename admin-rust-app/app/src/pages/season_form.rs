@@ -12,11 +12,12 @@ use admin_rust_core::{
         types::{Location, Season, SeasonStatus},
     },
     forms::{
+        event::FieldMessages,
         layouts::as_api_error,
         season::{
             GENERAL_ADMISSION, PreviewLevel, SPORTS, SeasonDraft, SeasonPreviewContext,
             first_error_key, focus_id_for, place_season_errors, preview_season, price_keys,
-            to_season_input,
+            same_draft, to_season_input,
         },
     },
     pages::{
@@ -70,6 +71,8 @@ struct Derived {
     offered: Vec<PickerEvent>,
     tier_names: Vec<String>,
     ctx: SeasonPreviewContext,
+    /// The publish rules' context (complete and publishing, review 041).
+    publish_ctx: SeasonPreviewContext,
     keys: Vec<String>,
 }
 
@@ -98,19 +101,13 @@ fn SeasonPage(id: Option<String>) -> impl IntoView {
     let sent = RwSignal::new(Sent::default());
     let busy = RwSignal::new(false);
     let saved: RwSignal<Option<String>> = RwSignal::new(None);
+    // Review 041: the publish rules' failures, shown beside their fields until the next change.
+    let publish_checks: RwSignal<Option<FieldMessages>> = RwSignal::new(None);
     let now = now_ms();
 
     spawn_local(async move {
         let list = auth.api().list_locations(None).await.unwrap_or_default();
         venues.try_set(list);
-    });
-    spawn_local(async move {
-        let list = auth
-            .api()
-            .list_events(&EventFilters::default())
-            .await
-            .unwrap_or_default();
-        events.try_set(list.iter().map(PickerEvent::from).collect());
     });
     if let Some(season_id) = id.clone() {
         spawn_local(async move {
@@ -128,6 +125,24 @@ fn SeasonPage(id: Option<String>) -> impl IntoView {
 
     // The venue's layouts; an answer for a venue no longer chosen is dropped.
     let location = Memo::new(move |_| draft.with(|d| d.location_id.clone()));
+    // The picker asks for the chosen venue's events only (review 041).
+    Effect::new(move |_| {
+        let location_id = location.get();
+        events.set(Vec::new());
+        if location_id.is_empty() {
+            return;
+        }
+        spawn_local(async move {
+            let filters = EventFilters {
+                location_id: Some(location_id.clone()),
+                ..EventFilters::default()
+            };
+            let list = auth.api().list_events(&filters).await.unwrap_or_default();
+            if draft.try_with_untracked(|d| d.location_id == location_id) == Some(true) {
+                events.set(list.iter().map(PickerEvent::from).collect());
+            }
+        });
+    });
     Effect::new(move |_| {
         let location_id = location.get();
         layouts.set(Vec::new());
@@ -251,24 +266,49 @@ fn SeasonPage(id: Option<String>) -> impl IntoView {
         };
         let complete =
             season.with(|s| s.as_ref().is_some_and(|s| s.status == SeasonStatus::OnSale));
-        let ctx = levels.with(|ls| preview_context(&zone, &chosen, ls, &tier_names, complete));
+        let (ctx, publish_ctx) = levels.with(|ls| {
+            (
+                preview_context(&zone, &chosen, ls, &tier_names, complete, false),
+                preview_context(&zone, &chosen, ls, &tier_names, true, true),
+            )
+        });
         let keys = price_keys(&d, &ctx);
         Derived {
             zone,
             offered,
             tier_names,
             ctx,
+            publish_ctx,
             keys,
         }
     });
     let previews = Memo::new(move |_| derived.with(|x| draft.with(|d| preview_season(d, &x.ctx))));
     let placed = Memo::new(move |_| {
-        error.with(|e| sent.with(|s| place_season_errors(e.as_ref(), &s.event_ids, &s.price_keys)))
+        let shown: Vec<String> =
+            derived.with(|x| x.keys.iter().map(|k| format!("prices.{k}")).collect());
+        error.with(|e| {
+            sent.with(|s| {
+                place_season_errors(e.as_ref(), &s.event_ids, &s.price_keys, Some(&shown))
+            })
+        })
     });
-    // A refusal's messages beside a field, else, once a save was tried, the preview's.
+    // Review 041: Put on sale publishes the saved Season, so only while the form still shows it.
+    let dirty = Memo::new(move |_| {
+        season.with(|s| {
+            s.as_ref()
+                .is_some_and(|s| draft.with(|d| !same_draft(&draft_of(s), d)))
+        })
+    });
+    // A refusal's messages beside a field, else the publish rules' failure, else, once a save
+    // was tried, the preview's.
     let hint_for = move |key: &str| -> Vec<String> {
         if let Some(messages) = placed.with(|p| p.get(key).map(<[String]>::to_vec)) {
             return messages;
+        }
+        if let Some(message) =
+            publish_checks.with(|c| c.as_ref().and_then(|c| c.get(key)).map(str::to_string))
+        {
+            return vec![message];
         }
         if submitted.get()
             && let Some(message) = previews.with(|p| p.get(key).map(str::to_string))
@@ -281,6 +321,7 @@ fn SeasonPage(id: Option<String>) -> impl IntoView {
     let change = move |patch: &dyn Fn(&mut SeasonDraft)| {
         draft.update(|d| patch(d));
         error.set(None);
+        publish_checks.set(None);
         saved.set(None);
     };
 
@@ -288,7 +329,13 @@ fn SeasonPage(id: Option<String>) -> impl IntoView {
     let refused = move |err: ApiError, mapping: Sent| {
         let api_error = as_api_error(err);
         let first = first_error_key(
-            &place_season_errors(Some(&api_error), &mapping.event_ids, &mapping.price_keys).keys(),
+            &place_season_errors(
+                Some(&api_error),
+                &mapping.event_ids,
+                &mapping.price_keys,
+                None,
+            )
+            .keys(),
             &derived.with_untracked(|x| x.keys.clone()),
         );
         error.try_set(Some(api_error));
@@ -349,9 +396,26 @@ fn SeasonPage(id: Option<String>) -> impl IntoView {
         let Some(s) = season.get_untracked() else {
             return;
         };
-        if busy.get_untracked() {
+        if busy.get_untracked() || dirty.get_untracked() {
             return;
         }
+        // FR-010: the publish rules previewed first (at least 2 events, every level priced, the
+        // sales end ahead); nothing is sent while one fails.
+        let (checks, keys) = derived.with_untracked(|x| {
+            (
+                draft.with_untracked(|d| preview_season(d, &x.publish_ctx)),
+                x.keys.clone(),
+            )
+        });
+        if !checks.is_empty() {
+            error.set(None);
+            saved.set(None);
+            let first = first_error_key(&checks.keys(), &keys);
+            publish_checks.set(Some(checks));
+            focus_later(first.map(|k| focus_id_for(&k)));
+            return;
+        }
+        publish_checks.set(None);
         let mapping = Sent {
             event_ids: s.events.iter().map(|e| e.id.to_string()).collect(),
             price_keys: saved_price_keys(&s),
@@ -479,6 +543,7 @@ fn SeasonPage(id: Option<String>) -> impl IntoView {
         saved,
         cancelled,
         passes_locked,
+        dirty,
         deleting,
         delete_error,
     };
@@ -519,6 +584,7 @@ struct Form {
     saved: RwSignal<Option<String>>,
     cancelled: Memo<bool>,
     passes_locked: Memo<bool>,
+    dirty: Memo<bool>,
     deleting: RwSignal<bool>,
     delete_error: RwSignal<Option<String>>,
 }
@@ -562,6 +628,7 @@ impl Form {
             saved,
             cancelled,
             passes_locked,
+            dirty,
             deleting,
             delete_error,
         } = self;
@@ -600,10 +667,16 @@ impl Form {
                                 type="button"
                                 class="btn btn--primary"
                                 on:click=move |_| publish()
-                                disabled=move || busy.get()
+                                disabled=move || busy.get() || dirty.get()
+                                aria-describedby=move || dirty.get().then_some("publish-hint")
                             >
                                 "Put on sale"
                             </button>
+                            {move || dirty.get().then(|| view! {
+                                <span class="field__hint" id="publish-hint" data-testid="publish-hint">
+                                    "Save your changes first."
+                                </span>
+                            })}
                         })}
                         {(status == SeasonStatus::OnSale).then(|| view! {
                             <button
@@ -944,7 +1017,7 @@ impl Form {
                                 {hint(|| "layoutId-error".into(), move || hint_for("layoutId"))}
                             </div>
                             {move || (passes_locked.get() && !read_only()).then(|| view! {
-                                <span class="field__hint" data-testid="events-locked">
+                                <span class="field__hint" data-testid="venue-locked">
                                     {season_lock::PASSES}
                                 </span>
                             })}
@@ -1022,6 +1095,12 @@ impl Form {
                             aria-describedby=events_described
                         >
                             <legend>"Events"</legend>
+                            // Review 041: the reason beside the locked boxes too (FR-017).
+                            {move || (passes_locked.get() && !read_only()).then(|| view! {
+                                <span class="field__hint" data-testid="events-locked">
+                                    {season_lock::PASSES}
+                                </span>
+                            })}
                             {events_body}
                             {hint(|| "eventIds-error".into(), move || hint_for("eventIds"))}
                         </fieldset>

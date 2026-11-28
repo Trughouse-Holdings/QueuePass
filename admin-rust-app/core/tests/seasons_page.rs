@@ -370,10 +370,13 @@ fn a_price_box_is_named_by_its_level_or_ticket_type() {
 #[test]
 fn the_checks_read_the_chosen_events_and_whether_the_season_is_on_sale() {
     let chosen = &listed()[..2];
-    let ctx = preview_context("America/New_York", chosen, &[], &[], true);
+    let ctx = preview_context("America/New_York", chosen, &[], &[], true, false);
     assert_eq!(ctx.events.len(), 2);
     assert_eq!(ctx.events[0].name, "Cardinals vs. Miami");
     assert!(ctx.complete && !ctx.publishing);
+    // Review 041: Put on sale checks the publish rules first, on a context saying so.
+    let publishing = preview_context("America/New_York", &chosen[..1], &[], &[], true, true);
+    assert!(publishing.complete && publishing.publishing);
 }
 
 #[test]

@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use crate::api::types;
 use crate::forms::season::{
     GENERAL_ADMISSION, PreviewEvent, PreviewLevel, SPORTS, SeasonDraft, SeasonPreviewContext,
-    tier_key,
+    by_name, tier_key,
 };
 use crate::money::usd;
 use crate::pages::attendees_reports::count;
@@ -355,17 +355,19 @@ pub fn offered_tier_names(lists: &[Vec<String>], priced: &[String]) -> Vec<Strin
             out.push(n.clone());
         }
     }
-    out.sort_by_key(|n| n.to_lowercase());
+    out.sort_by(|a, b| by_name(a, b));
     out
 }
 
-/// The checks' context for the chosen events (`ctx` in `SeasonForm.tsx`).
+/// The checks' context for the chosen events (`ctx` in `SeasonForm.tsx`); Put on sale checks with
+/// `complete` and `publishing` both on (review 041).
 pub fn preview_context(
     zone: &str,
     chosen: &[PickerEvent],
     levels: &[PreviewLevel],
     tier_names: &[String],
     complete: bool,
+    publishing: bool,
 ) -> SeasonPreviewContext {
     SeasonPreviewContext {
         zone: zone.to_string(),
@@ -381,7 +383,7 @@ pub fn preview_context(
         levels: levels.to_vec(),
         tier_names: tier_names.to_vec(),
         complete,
-        publishing: false,
+        publishing,
     }
 }
 

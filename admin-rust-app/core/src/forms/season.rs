@@ -4,6 +4,7 @@
 //! Backend's own field paths, so `place_season_errors` puts a refusal where a preview would have
 //! gone. The list's status text and the event picker's filter are in `crate::pages::seasons`.
 
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
@@ -11,7 +12,6 @@ use serde_json::{Map, Value};
 
 use crate::api::client::ApiError;
 use crate::forms::event::FieldMessages;
-use crate::money::is_base_price;
 use crate::pages::event_page::json_number_of;
 use crate::time::{
     ResolvedLocal, format_event_time, parse_instant, resolve_local, skipped_time_message,
@@ -93,10 +93,12 @@ pub mod season_msg {
     pub const SPORT: &str = "Choose the sport, or leave the team blank.";
     pub const TEAM_LENGTH: &str = "team must be between 1 and 100 characters";
     pub const SALES_END: &str = "Enter when pass sales end.";
+    pub const PRESALE_TIME: &str =
+        "Enter when single tickets go on sale, or leave both its date and time blank.";
     pub const PRESALE: &str = "Single tickets must go on sale no later than the pass sales end.";
     pub const PASSES: &str =
         "Passes per customer must be a whole number from 1 to 10, or blank for no limit.";
-    pub const PRICE: &str = "Enter a price such as 640.00.";
+    pub const PRICE: &str = "Enter a price such as 640.00, at most 99999999.99.";
     pub const TWO_EVENTS: &str = "Choose at least 2 events to put the season on sale.";
     pub const ONE_NAME: &str = "Price at least one ticket type.";
 }
@@ -113,6 +115,24 @@ pub fn sales_end_message(event_name: &str, start: &str, zone: &str) -> String {
         |at| format_event_time(at, zone),
     );
     format!("Pass sales must end by the start of the first event, {event_name} ({when}).")
+}
+
+/// The contract's `SeasonPriceInput.price`, `/^\d{1,8}(\.\d{1,2})?$/`: at most 8 whole digits,
+/// fitting decimal(10,2) (review 041).
+pub fn is_pass_price(price: &str) -> bool {
+    let (whole, fraction) = match price.split_once('.') {
+        Some((w, f)) => (w, Some(f)),
+        None => (price, None),
+    };
+    let digits =
+        |s: &str, max: usize| (1..=max).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_digit());
+    digits(whole, 8) && fraction.is_none_or(|f| digits(f, 2))
+}
+
+/// Ticket type names in one order in both Admin apps (`byName`): their lower-case characters,
+/// compared.
+pub fn by_name(a: &str, b: &str) -> Ordering {
+    a.to_lowercase().cmp(&b.to_lowercase())
 }
 
 /// A general-admission price key for a ticket type name.
@@ -142,8 +162,13 @@ pub fn instant_of(local: &str, zone: &str) -> Option<DateTime<Utc>> {
     }
 }
 
-/// A time field's own problem: missing, or a local time the clocks skip.
-fn time_problem(local: &str, zone: &str, missing: Option<&str>) -> Option<String> {
+/// A time field's own problem: missing, unreadable, or a local time the clocks skip.
+fn time_problem(
+    local: &str,
+    zone: &str,
+    missing: Option<&str>,
+    unreadable: &str,
+) -> Option<String> {
     if local.is_empty() {
         return missing.map(str::to_string);
     }
@@ -158,7 +183,7 @@ fn time_problem(local: &str, zone: &str, missing: Option<&str>) -> Option<String
             &skipped_to,
         )),
         Ok(_) => None,
-        Err(_) => Some(missing.unwrap_or(season_msg::SALES_END).to_string()),
+        Err(_) => Some(unreadable.to_string()),
     }
 }
 
@@ -213,10 +238,20 @@ pub fn preview_season(draft: &SeasonDraft, ctx: &SeasonPreviewContext) -> FieldM
         errors.set("sport", season_msg::SPORT);
     }
 
-    if let Some(problem) = time_problem(&draft.sales_end_at, zone, Some(season_msg::SALES_END)) {
+    if let Some(problem) = time_problem(
+        &draft.sales_end_at,
+        zone,
+        Some(season_msg::SALES_END),
+        season_msg::SALES_END,
+    ) {
         errors.set("salesEndAt", problem);
     }
-    if let Some(problem) = time_problem(&draft.single_sales_open_at, zone, None) {
+    if let Some(problem) = time_problem(
+        &draft.single_sales_open_at,
+        zone,
+        None,
+        season_msg::PRESALE_TIME,
+    ) {
         errors.set("singleSalesOpenAt", problem);
     }
     let sales_end = instant_of(&draft.sales_end_at, zone);
@@ -251,7 +286,7 @@ pub fn preview_season(draft: &SeasonDraft, ctx: &SeasonPreviewContext) -> FieldM
     let mut priced = 0;
     for key in price_keys(draft, ctx) {
         let typed = draft.prices.get(&key).map_or("", |p| p.trim());
-        if !typed.is_empty() && !is_base_price(typed) {
+        if !typed.is_empty() && !is_pass_price(typed) {
             errors.set(&format!("prices.{key}"), season_msg::PRICE);
         } else if !typed.is_empty() {
             priced += 1;
@@ -267,6 +302,37 @@ pub fn preview_season(draft: &SeasonDraft, ctx: &SeasonPreviewContext) -> FieldM
         errors.set("prices", season_msg::ONE_NAME);
     }
     errors
+}
+
+/// Review 041 (`sameDraft`): whether the form still shows the saved Season, so Put on sale
+/// publishes what is on screen. Prices compare by their filled boxes, in any order; blanks are
+/// no price.
+pub fn same_draft(a: &SeasonDraft, b: &SeasonDraft) -> bool {
+    let filled = |d: &SeasonDraft| -> Vec<String> {
+        let mut out: Vec<String> = d
+            .prices
+            .iter()
+            .filter(|(_, v)| !v.trim().is_empty())
+            .map(|(k, v)| format!("{k}={}", v.trim()))
+            .collect();
+        out.sort();
+        out
+    };
+    let events = |d: &SeasonDraft| {
+        let mut ids = d.event_ids.clone();
+        ids.sort();
+        ids
+    };
+    a.name == b.name
+        && a.location_id == b.location_id
+        && a.layout == b.layout
+        && a.sport == b.sport
+        && a.team == b.team
+        && a.sales_end_at == b.sales_end_at
+        && a.single_sales_open_at == b.single_sales_open_at
+        && a.max_passes_per_customer == b.max_passes_per_customer
+        && events(a) == events(b)
+        && filled(a) == filled(b)
 }
 
 /// The form's fields top to bottom, for focus on the first at fault (FR-017).
@@ -447,36 +513,57 @@ fn dot_index(rest: &str) -> Option<usize> {
         .then(|| digits.parse().unwrap_or(usize::MAX))
 }
 
+/// `\w+`: one or more of `[A-Za-z0-9_]`.
+fn is_word(s: &str) -> bool {
+    !s.is_empty() && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+}
+
+/// `/^prices\.(\d+)(\.(\w+))?$/`: a sent price entry's index, and the field of it named.
+fn price_entry(path: &str) -> Option<(usize, Option<&str>)> {
+    let rest = path.strip_prefix("prices.")?;
+    let (index, field) = match rest.split_once('.') {
+        Some((i, f)) => (i, Some(f)),
+        None => (rest, None),
+    };
+    let i = dot_index(&format!(".{index}"))?;
+    match field {
+        Some(f) if !is_word(f) => None,
+        _ => Some((i, field)),
+    }
+}
+
 /// A refusal's field path as the form's key, or `None` for a field the form has no place for.
-fn key_of(path: &str, sent_price_keys: &[String]) -> Option<String> {
+fn key_of(path: &str, sent_price_keys: &[String], shown: Option<&[String]>) -> Option<String> {
     if let Some(rest) = path.strip_prefix("eventIds")
         && (rest.is_empty() || dot_index(rest).is_some())
     {
         return Some("eventIds".into());
     }
-    if let Some(rest) = path.strip_prefix("prices") {
-        if let Some(i) = dot_index(rest) {
-            return Some(
-                sent_price_keys
-                    .get(i)
-                    .cloned()
-                    .unwrap_or_else(|| "prices".into()),
-            );
-        }
-        if rest.is_empty() || rest.len() > 1 && rest.starts_with('.') {
-            return Some(path.to_string());
-        }
+    // A sent entry by its index, or one of its fields (`prices.<i>.price`, review).
+    if let Some((i, _)) = price_entry(path) {
+        return sent_price_keys.get(i).cloned();
+    }
+    if path == "prices" {
+        return Some(path.to_string());
+    }
+    if path.len() > "prices.".len() && path.starts_with("prices.") {
+        return shown
+            .is_none_or(|keys| keys.iter().any(|k| k == path))
+            .then(|| path.to_string());
     }
     NAMED_FIELDS.contains(&path).then(|| path.to_string())
 }
 
 /// R4: a refusal's field paths as the form's keys. `eventIds.<i>` all go beside the events;
 /// `prices.<i>` names the i-th price sent; `prices.<levelId>` a level's box. A path with an index
-/// or an id is left out of the message shown, the field says it.
+/// or an id is left out of the message shown, the field says it; a sent entry's own field keeps
+/// its name (`prices.<i>.price` → "price must be …", review). `shown` are the price boxes the
+/// form shows (`prices.<key>`): a price path naming none of them is a general message.
 pub fn place_season_errors(
     error: Option<&ApiError>,
     _sent_event_ids: &[String],
     sent_price_keys: &[String],
+    shown: Option<&[String]>,
 ) -> PlacedSeasonErrors {
     let mut placed = PlacedSeasonErrors::default();
     let Some(error) = error else {
@@ -484,7 +571,7 @@ pub fn place_season_errors(
     };
     let details = error.details();
     if let Some(field) = details.and_then(|d| d.get("field")).and_then(Value::as_str) {
-        match key_of(field, sent_price_keys) {
+        match key_of(field, sent_price_keys, shown) {
             Some(key) => placed.add(key, error.message().to_string()),
             None => placed.unmapped.push(error.message().to_string()),
         }
@@ -497,14 +584,16 @@ pub fn place_season_errors(
         for entry in fields.iter().filter_map(Value::as_str) {
             let space = entry.find(' ');
             let head = space.map_or(entry, |at| &entry[..at]);
-            match key_of(head, sent_price_keys) {
+            match key_of(head, sent_price_keys, shown) {
                 None => placed.unmapped.push(entry.to_string()),
                 Some(key) => {
-                    let message = match space {
-                        Some(at) if head.contains('.') => &entry[at + 1..],
-                        _ => entry,
+                    let rest = space.map_or(entry, |at| &entry[at + 1..]);
+                    let message = match price_entry(head) {
+                        Some((_, Some(field))) => format!("{field} {rest}"),
+                        _ if head.contains('.') => rest.to_string(),
+                        _ => entry.to_string(),
                     };
-                    placed.add(key, message.to_string());
+                    placed.add(key, message);
                 }
             }
         }

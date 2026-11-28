@@ -11,8 +11,8 @@ use admin_rust_core::api::client::{ApiError, error_from};
 use admin_rust_core::api::types::SeasonStatus;
 use admin_rust_core::forms::season::{
     GENERAL_ADMISSION, PreviewEvent, PreviewLevel, SPORTS, SeasonDraft, SeasonPreviewContext,
-    field_order, first_error_key, focus_id_for, level_price_message, place_season_errors,
-    preview_season, price_keys, season_msg, tier_key, to_season_input,
+    by_name, field_order, first_error_key, focus_id_for, level_price_message, place_season_errors,
+    preview_season, price_keys, same_draft, season_msg, tier_key, to_season_input,
 };
 use admin_rust_core::pages::seasons::{
     PickOptions, PickerEvent, SeasonClock, SeasonRef, pickable_events, season_status_text,
@@ -228,8 +228,8 @@ fn says_a_skipped_local_time_is_skipped() {
     };
     let errors = preview_season(&d, &c);
     assert!(errors.get("salesEndAt").unwrap().contains("2:30 AM"));
-    // A presale time the clocks skip says so too; a time that is not one is the sales end's
-    // message, as the TypeScript's catch gives.
+    // A presale time the clocks skip says so too; one that is not a time at all has its own
+    // message (review).
     let d = SeasonDraft {
         single_sales_open_at: "2026-03-08T02:30".into(),
         ..draft()
@@ -241,11 +241,24 @@ fn says_a_skipped_local_time_is_skipped() {
             .contains("doesn't exist in Eastern Time")
     );
     let d = SeasonDraft {
-        single_sales_open_at: "2026-13-40T99:99".into(),
+        single_sales_open_at: "2026-13-45T99:99".into(),
         ..draft()
     };
     assert_eq!(
         preview_season(&d, &c).get("singleSalesOpenAt"),
+        Some(season_msg::PRESALE_TIME)
+    );
+    assert_eq!(
+        season_msg::PRESALE_TIME,
+        "Enter when single tickets go on sale, or leave both its date and time blank."
+    );
+    // An unreadable sales end is the sales end's message.
+    let d = SeasonDraft {
+        sales_end_at: "2026-13-45T99:99".into(),
+        ..draft()
+    };
+    assert_eq!(
+        preview_season(&d, &c).get("salesEndAt"),
         Some(season_msg::SALES_END)
     );
 }
@@ -265,6 +278,25 @@ fn takes_the_first_of_a_repeated_local_time() {
     assert!(preview_season(&d, &c).is_empty());
     let (input, _) = to_season_input(&d, &c);
     assert_eq!(input["salesEndAt"], "2026-11-01T01:30:00-04:00");
+}
+
+#[test]
+fn refuses_a_price_over_99_999_999_99() {
+    // Review 041 (contract SeasonPriceInput.price `^\d{1,8}(\.\d{1,2})?$`).
+    let d = SeasonDraft {
+        prices: prices(&[(LOWER, "100000000"), (UPPER, "99999999.99")]),
+        ..draft()
+    };
+    let errors = preview_season(&d, &ctx());
+    assert_eq!(
+        errors.get(&format!("prices.{LOWER}")),
+        Some(season_msg::PRICE)
+    );
+    assert!(!errors.has(&format!("prices.{UPPER}")));
+    assert_eq!(
+        season_msg::PRICE,
+        "Enter a price such as 640.00, at most 99999999.99."
+    );
 }
 
 #[test]
@@ -580,6 +612,7 @@ fn places_each_400_field_by_its_path_entries_by_index_without_the_path_in_the_me
         )),
         &event_ids,
         &keys,
+        None,
     );
     let get = |k: &str| placed.get(k).map(<[String]>::to_vec);
     assert_eq!(
@@ -620,6 +653,76 @@ fn places_each_400_field_by_its_path_entries_by_index_without_the_path_in_the_me
 }
 
 #[test]
+fn places_a_nested_price_refusal_by_its_entry_and_a_path_no_control_shows_as_general() {
+    // Review 041: `prices.<i>.<field>` lands on entry i's box, keeping the field's name.
+    let (event_ids, keys) = sent();
+    let shown = [format!("prices.{UPPER}"), "prices.tier:vip".to_string()];
+    let placed = place_season_errors(
+        Some(&refusal(
+            400,
+            json!({
+                "code": "VALIDATION_FAILED",
+                "message": "Request validation failed.",
+                "details": {
+                    "fields": [
+                        "prices.0.price must be a non-negative decimal string up to 99999999.99",
+                        "prices.7.price must be a decimal string",
+                        "prices.cccccccc-cccc-4ccc-8ccc-cccccccccccc Give Gone a price.",
+                    ]
+                }
+            }),
+        )),
+        &event_ids,
+        &keys,
+        Some(&shown),
+    );
+    assert_eq!(
+        placed.get(&format!("prices.{UPPER}")),
+        Some(&["price must be a non-negative decimal string up to 99999999.99".to_string()][..])
+    );
+    assert_eq!(placed.fields.len(), 1);
+    assert_eq!(
+        placed.unmapped,
+        [
+            "prices.7.price must be a decimal string",
+            "prices.cccccccc-cccc-4ccc-8ccc-cccccccccccc Give Gone a price.",
+        ]
+    );
+    // A single field naming a nested entry lands on its box too; a shown box by its key stays.
+    let field = place_season_errors(
+        Some(&refusal(
+            400,
+            json!({
+                "code": "VALIDATION_FAILED",
+                "message": "Too dear.",
+                "details": { "field": "prices.1.price" }
+            }),
+        )),
+        &event_ids,
+        &keys,
+        Some(&shown),
+    );
+    assert_eq!(
+        field.get("prices.tier:vip"),
+        Some(&["Too dear.".to_string()][..])
+    );
+    let by_key = place_season_errors(
+        Some(&refusal(
+            400,
+            json!({
+                "code": "VALIDATION_FAILED",
+                "message": "x",
+                "details": { "fields": ["prices.tier:vip Show 18 has no VIP", "prices Price one."] }
+            }),
+        )),
+        &event_ids,
+        &keys,
+        Some(&shown),
+    );
+    assert_eq!(by_key.keys(), ["prices.tier:vip", "prices"]);
+}
+
+#[test]
 fn places_a_409_naming_its_field_an_event_in_another_season_passes_sold_a_time() {
     let (event_ids, keys) = sent();
     let in_season = place_season_errors(
@@ -633,6 +736,7 @@ fn places_a_409_naming_its_field_an_event_in_another_season_passes_sold_a_time()
         )),
         &event_ids,
         &keys,
+        None,
     );
     assert_eq!(
         in_season.get("eventIds"),
@@ -649,6 +753,7 @@ fn places_a_409_naming_its_field_an_event_in_another_season_passes_sold_a_time()
         )),
         &event_ids,
         &keys,
+        None,
     );
     assert_eq!(
         passes.get("layoutId"),
@@ -665,13 +770,14 @@ fn places_a_409_naming_its_field_an_event_in_another_season_passes_sold_a_time()
         )),
         &event_ids,
         &keys,
+        None,
     );
     assert_eq!(
         offset.get("salesEndAt"),
         Some(&["salesEndAt is stated with offset +00:00.".to_string()][..])
     );
-    // A publish refusal's `prices.<i>` past the prices sent is the prices box; a field the form
-    // has no place for is a general message.
+    // A refusal's `prices.<i>` past the prices sent, or a field the form has no place for, is a
+    // general message (review).
     let past = place_season_errors(
         Some(&refusal(
             400,
@@ -683,11 +789,10 @@ fn places_a_409_naming_its_field_an_event_in_another_season_passes_sold_a_time()
         )),
         &event_ids,
         &keys,
+        None,
     );
-    assert_eq!(
-        past.get("prices"),
-        Some(&["No such price.".to_string()][..])
-    );
+    assert!(past.is_empty_fields());
+    assert_eq!(past.unmapped, ["No such price."]);
     let elsewhere = place_season_errors(
         Some(&refusal(
             409,
@@ -699,6 +804,7 @@ fn places_a_409_naming_its_field_an_event_in_another_season_passes_sold_a_time()
         )),
         &event_ids,
         &keys,
+        None,
     );
     assert!(elsewhere.is_empty_fields());
     assert_eq!(elsewhere.unmapped, ["Already on sale."]);
@@ -714,11 +820,12 @@ fn keeps_a_refusal_that_names_no_field_as_a_general_message() {
         )),
         &event_ids,
         &keys,
+        None,
     );
     assert!(placed.is_empty_fields());
     assert_eq!(placed.unmapped, ["Winter is cancelled."]);
     assert!(
-        place_season_errors(None, &event_ids, &keys)
+        place_season_errors(None, &event_ids, &keys, None,)
             .unmapped
             .is_empty()
     );
@@ -730,8 +837,49 @@ fn keeps_a_refusal_that_names_no_field_as_a_general_message() {
         )),
         &event_ids,
         &keys,
+        None,
     );
     assert!(empty.is_empty_fields() && empty.unmapped.is_empty());
+}
+
+// ---------------------------------------------------------------- sameDraft, byName (review)
+
+#[test]
+fn is_the_same_season_with_events_and_filled_prices_in_any_order_blanks_ignored() {
+    let a = draft();
+    let reordered = SeasonDraft {
+        event_ids: vec!["e2".into(), "e1".into()],
+        prices: prices(&[(UPPER, "60.00"), (LOWER, "100.00"), ("x", " ")]),
+        ..a.clone()
+    };
+    assert!(same_draft(&a, &reordered));
+    let renamed = SeasonDraft {
+        name: "Other".into(),
+        ..a.clone()
+    };
+    assert!(!same_draft(&a, &renamed));
+    let fewer_prices = SeasonDraft {
+        prices: prices(&[(LOWER, "100.00")]),
+        ..a.clone()
+    };
+    assert!(!same_draft(&a, &fewer_prices));
+    let fewer_events = SeasonDraft {
+        event_ids: vec!["e1".into()],
+        ..a.clone()
+    };
+    assert!(!same_draft(&a, &fewer_events));
+    let trimmed = SeasonDraft {
+        prices: prices(&[(LOWER, " 100.00 "), (UPPER, "60.00")]),
+        ..a.clone()
+    };
+    assert!(same_draft(&a, &trimmed));
+}
+
+#[test]
+fn orders_names_by_their_lower_case_characters_as_the_react_app_does() {
+    let mut names = vec!["vip", "General", "Éclair", "balcony", "general b"];
+    names.sort_by(|a, b| by_name(a, b));
+    assert_eq!(names, ["balcony", "General", "general b", "vip", "Éclair"]);
 }
 
 // ---------------------------------------------------------------- pickableEvents (R11)
