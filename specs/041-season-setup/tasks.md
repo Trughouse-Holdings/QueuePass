@@ -113,17 +113,17 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
   `lockSeasonWrite` in one `LOCKING_TX` transaction; map the `SeasonEvent_pkey` unique violation to
   `409 EVENT_IN_SEASON`; controller handlers with `@Roles` as the contract; remove the
   `x-planned: '041'` markers of `listSeasons`, `createSeason`, `getSeason`, `publishSeason`
-- [ ] T016 [P] [US1] `admin-app/src/api/seasons.ts` (typed calls from `api-schema.ts`)
-- [ ] T017 [P] [US1] *(test first)* `admin-app/test/season-form-checks.test.ts`: the same rules as
+- [X] T016 [P] [US1] `admin-app/src/api/seasons.ts` (typed calls from `api-schema.ts`)
+- [X] T017 [P] [US1] *(test first)* `admin-app/test/season-form-checks.test.ts`: the same rules as
   T006 as previews, keyed by the Backend's field paths
-- [ ] T018 [US1] `admin-app/src/pages/season-form-checks.ts` to pass T017
-- [ ] T019 [US1] *(test first)* `admin-app/test/SeasonForm.test.tsx` and `Seasons.test.tsx`: the
+- [X] T018 [US1] `admin-app/src/pages/season-form-checks.ts` to pass T017
+- [X] T019 [US1] *(test first)* `admin-app/test/SeasonForm.test.tsx` and `Seasons.test.tsx`: the
   list shows name, venue, sport and team, events, status text (Draft, On sale, Presale until …,
   Sales ended, Cancelled), passes sold, pass revenue; the form's picker lists only upcoming
   scheduled events at the venue on the layout (or general admission) not in another Season; a price
   box per level (or per name); missing fields marked and the first focused; a Backend refusal placed
   beside its field with every value kept; Save then Put on sale
-- [ ] T020 [US1] `admin-app/src/pages/Seasons.tsx`, `SeasonForm.tsx`; routes `/seasons`,
+- [X] T020 [US1] `admin-app/src/pages/Seasons.tsx`, `SeasonForm.tsx`; routes `/seasons`,
   `/seasons/new`, `/seasons/:id` and a Seasons nav link between Events and Reports in
   `admin-app/src/App.tsx` (R11); date-and-time controls as the event form (`036`)
 - [ ] T021 [P] [US1] *(test first)* `admin-rust-app/core/tests/season_form.rs`: T017's cases

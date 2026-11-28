@@ -479,8 +479,18 @@ export class SeasonsService {
   private async storedInput(tx: Tx, id: string): Promise<SeasonRuleInput> {
     const s = await tx.season.findUniqueOrThrow({
       where: { id },
-      include: { events: { select: { eventId: true } }, prices: true },
+      include: {
+        events: { select: { eventId: true } },
+        prices: { include: { level: { select: { rank: true } } } },
+      },
     });
+    // In the response's order (level rank, or name), so a publish refusal's `prices.<i>` is the
+    // i-th price the Season's page shows.
+    const prices = [...s.prices].sort((a, b) =>
+      a.level && b.level
+        ? a.level.rank - b.level.rank
+        : (a.tierName ?? '').toLowerCase().localeCompare((b.tierName ?? '').toLowerCase()),
+    );
     return {
       name: s.name,
       sport: s.sport,
@@ -491,7 +501,7 @@ export class SeasonsService {
       singleSalesOpenAt: s.singleSalesOpenAt,
       maxPassesPerCustomer: s.maxPassesPerCustomer,
       eventIds: s.events.map((e) => e.eventId),
-      prices: s.prices.map((p) =>
+      prices: prices.map((p) =>
         p.levelId !== null
           ? { levelId: p.levelId, price: p.price.toFixed(2) }
           : { tierName: p.tierName!, price: p.price.toFixed(2) },
