@@ -463,6 +463,10 @@ export const lockReason = {
     `This type has ${sold.toLocaleString()} ${sold === 1 ? 'ticket' : 'tickets'} already sold.`,
 } as const;
 
+/** Spec 041 FR-007, FR-019: an event in a Season keeps its venue, layout and seating kind. */
+export const seasonLockReason = (season: string): string =>
+  `In season: ${season}. Its venue, layout and seating can't change.`;
+
 export function visibleErrors(
   all: Map<string, string>,
   touched: ReadonlySet<string>,

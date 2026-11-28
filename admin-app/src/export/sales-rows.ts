@@ -26,6 +26,9 @@ const COLUMNS: ExportColumn[] = [
   { header: 'Tickets sold', kind: 'count', width: 13 },
   { header: 'Ticket capacity', kind: 'count', width: 15 },
   { header: 'Revenue', kind: 'money', width: 14 },
+  // Spec 041 (R8): of the tickets sold and the revenue, what came from Season passes.
+  { header: 'Pass tickets', kind: 'count', width: 12 },
+  { header: 'Pass revenue', kind: 'money', width: 14 },
   { header: 'Checked in', kind: 'count', width: 12 },
 ];
 
@@ -50,6 +53,8 @@ export function salesTable(
       count(e.ticketsSold),
       count(e.ticketCapacity),
       money(e.revenue),
+      count(e.passTicketsSold ?? 0),
+      money(e.passRevenue ?? '0.00'),
       count(e.checkedIn),
     ];
   });
@@ -63,6 +68,8 @@ export function salesTable(
     count(totals.ticketsSold),
     count(totals.ticketCapacity),
     money(totals.revenue),
+    count(totals.passTicketsSold ?? 0),
+    money(totals.passRevenue ?? '0.00'),
     count(totals.checkedIn),
   ]);
 

@@ -173,11 +173,11 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 - [X] T029b [US2] `backend/src/layouts/layouts.service.ts` (`assertUnlocked` / `lockingEvents`,
   about line 1341): a layout is locked while an on-sale Season uses it; delete refused while any
   Season does (R9, review S5)
-- [ ] T030 [US2] *(test first)* Admin app: `SeasonForm.test.tsx` cases for the picker locked after a
+- [X] T030 [US2] *(test first)* Admin app: `SeasonForm.test.tsx` cases for the picker locked after a
   sale with its reason, Delete (draft only, confirmed), Cancel season with the confirmation naming
   the passes to refund, read-only when cancelled; `EventForm` test: "In season: …" and the layout
   and seating controls locked with that reason
-- [ ] T031 [US2] `admin-app/src/pages/SeasonForm.tsx` actions and locks; `EventForm.tsx` and the
+- [X] T031 [US2] `admin-app/src/pages/SeasonForm.tsx` actions and locks; `EventForm.tsx` and the
   event page read `event.season` (FR-019)
 - [ ] T032 [US2] Rust Admin app: the same in `core/src/forms/season.rs`, `core/src/forms/event.rs`
   (with `core/tests` cases first) and the views
@@ -196,11 +196,11 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
 - [X] T034 [US3] `backend/src/reports/reports.service.ts` pass figures; the order serializer adds
   `seasonPass` (R8); make `EventSales.passTicketsSold`, `passRevenue`, the totals' two fields, and
   `Order.seasonPass` required in `contracts/openapi.yaml`
-- [ ] T035 [P] [US3] *(test first)* Admin app export row tests: sales rows gain "Pass tickets" and
+- [X] T035 [P] [US3] *(test first)* Admin app export row tests: sales rows gain "Pass tickets" and
   "Pass revenue" after "Revenue" (and in the total row), attendee rows gain "Pass" after "Order
   status"; extend `pdf.fit.test` so both PDFs (the sales report's two new number columns, the
   attendee list's wrapping Pass column) still fit letter landscape (R8)
-- [ ] T036 [US3] `admin-app/src/export/sales-rows.ts`, `attendee-rows.ts`, `pages/Reports.tsx` (Pass
+- [X] T036 [US3] `admin-app/src/export/sales-rows.ts`, `attendee-rows.ts`, `pages/Reports.tsx` (Pass
   tickets column and the total row's pass figures), `pages/Attendees.tsx` (Pass column)
 - [ ] T037 [US3] Rust Admin app: `core/src/export/rows.rs` and `core/src/pages/attendees_reports.rs`
   (tests first in `core/tests`, including the Rust PDF fit test for both tables), the report and

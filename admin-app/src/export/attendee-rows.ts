@@ -23,18 +23,21 @@ const ORDER_STATUS: Record<Order['status'], string> = {
 /**
  * Spec 038: Price level's room comes from Name on tickets, Tier and Seat, so the PDF's minimum
  * widths still fit letter landscape with the widest values (023 review round 1; `pdf.fit.test`).
+ * Spec 041 (R8): Pass's room comes from Name on tickets, Seat and the two status columns.
  */
 const COLUMNS: ExportColumn[] = [
   { header: 'Order placed', kind: 'dateTime', width: 18 },
   { header: 'Customer', kind: 'text', width: 17 },
-  { header: 'Name on tickets', kind: 'text', width: 20 },
+  { header: 'Name on tickets', kind: 'text', width: 18 },
   { header: 'Tier', kind: 'text', width: 15 },
   { header: 'Price level', kind: 'text', width: 14 },
-  { header: 'Seat', kind: 'text', width: 20 },
+  { header: 'Seat', kind: 'text', width: 18 },
   { header: 'Ticket code', kind: 'text', width: 15, nowrap: true },
-  { header: 'Ticket status', kind: 'text', width: 13 },
+  { header: 'Ticket status', kind: 'text', width: 10 },
   { header: 'Checked in', kind: 'dateTime', width: 18 },
-  { header: 'Order status', kind: 'text', width: 17 },
+  { header: 'Order status', kind: 'text', width: 12 },
+  // Spec 041 (R8): the Season of an order bought on a pass; wraps like the other text columns.
+  { header: 'Pass', kind: 'text', width: 12 },
   { header: 'Price', kind: 'money', width: 11 },
   { header: 'Order', kind: 'text', width: 11, nowrap: true },
 ];
@@ -86,6 +89,7 @@ export function attendeeTable(
       // Research R13b: a void ticket shows no check-in, as the page shows only "(void)".
       local(t.status === 'VOID' || removedAt ? null : t.checkedInAt),
       text(ORDER_STATUS[o.status]),
+      text(o.seasonPass?.seasonName ?? ''),
       // Spec 038 FR-030: each ticket's own price (an order's seats may differ in price).
       { kind: 'money', value: t.price },
       text(o.id.slice(0, 8).toUpperCase()),

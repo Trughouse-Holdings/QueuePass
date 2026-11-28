@@ -25,6 +25,8 @@ describe('attendeeTable', () => {
       ['Ticket status', 'text'],
       ['Checked in', 'dateTime'],
       ['Order status', 'text'],
+      // Spec 041 (R8): the Season of an order bought on a pass.
+      ['Pass', 'text'],
       ['Price', 'money'],
       ['Order', 'text'],
     ]);
@@ -43,6 +45,7 @@ describe('attendeeTable', () => {
         t('Valid'),
         d('2026-11-01T16:45'),
         t('Confirmed'),
+        t(''),
         m('84.30'),
         t('AAAAAAAA'),
       ],
@@ -57,6 +60,7 @@ describe('attendeeTable', () => {
         t('Valid'),
         d(''),
         t('Confirmed'),
+        t(''),
         m('84.30'),
         t('AAAAAAAA'),
       ],
@@ -71,6 +75,7 @@ describe('attendeeTable', () => {
         t('Valid'),
         d(''),
         t('Confirmed'),
+        t('Louisville Hoops'),
         m('45.00'),
         t('BBBBBBBB'),
       ],
@@ -86,6 +91,7 @@ describe('attendeeTable', () => {
         t('Valid'),
         d(''),
         t('Confirmed'),
+        t(''),
         m('60.00'),
         t('CCCCCCCC'),
       ],
@@ -101,6 +107,7 @@ describe('attendeeTable', () => {
         // R13b: a void ticket's check-in stays empty, as the page shows only "(void)".
         d(''),
         t('Refunded'),
+        t(''),
         m('45.00'),
         t('DDDDDDDD'),
       ],
@@ -117,6 +124,7 @@ describe('attendeeTable', () => {
         t('Valid'),
         d(''),
         t('Confirmed'),
+        t(''),
         m('95.00'),
         t('EEEEEEEE'),
       ],
@@ -131,6 +139,7 @@ describe('attendeeTable', () => {
         t('Valid'),
         d(''),
         t('Confirmed'),
+        t(''),
         m('60.00'),
         t('EEEEEEEE'),
       ],
@@ -140,12 +149,12 @@ describe('attendeeTable', () => {
   it("prices each ticket at its own price, whatever the order's unit price (038 FR-030)", () => {
     const seated = { ...EXPORT_ORDERS[4], unitPrice: '77.50' };
     const rows = attendeeTable(CHICAGO_EVENT, [seated], MADE_AT, 'admin1', 'UTC').rows;
-    expect(rows.map((r) => r[10])).toEqual([m('95.00'), m('60.00')]);
+    expect(rows.map((r) => r[11])).toEqual([m('95.00'), m('60.00')]);
   });
 
   it("prices add up to the page's order totals", () => {
     const cents = table().rows.reduce(
-      (sum, row) => sum + Math.round(Number((row[10] as { value: string }).value) * 100),
+      (sum, row) => sum + Math.round(Number((row[11] as { value: string }).value) * 100),
       0,
     );
     const totals = EXPORT_ORDERS.reduce(

@@ -317,7 +317,7 @@ describe('Editing a season (041 US2, T030)', () => {
       await screen.findByText('This season is cancelled, so it can no longer be changed.'),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Season name')).toBeDisabled();
-    expect(screen.getByLabelText('Lower pass price')).toBeDisabled();
+    expect(await screen.findByLabelText('Lower pass price')).toBeDisabled();
     expect(
       screen.queryByRole('button', { name: /Cancel season|Put on sale|Delete/ }),
     ).not.toBeInTheDocument();

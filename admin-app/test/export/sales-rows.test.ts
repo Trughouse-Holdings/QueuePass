@@ -22,6 +22,9 @@ describe('salesTable', () => {
       ['Tickets sold', 'count'],
       ['Ticket capacity', 'count'],
       ['Revenue', 'money'],
+      // Spec 041 (R8): after Revenue.
+      ['Pass tickets', 'count'],
+      ['Pass revenue', 'money'],
       ['Checked in', 'count'],
     ]);
   });
@@ -37,6 +40,8 @@ describe('salesTable', () => {
         n(25),
         n(100),
         m('1321.50'),
+        n(3),
+        m('100.00'),
         n(12),
       ],
       [
@@ -49,6 +54,8 @@ describe('salesTable', () => {
         n(200),
         m('3000.00'),
         n(0),
+        m('0.00'),
+        n(0),
       ],
       [
         t('Rained Out'),
@@ -58,6 +65,8 @@ describe('salesTable', () => {
         t('Cancelled'),
         n(0),
         n(50),
+        m('0.00'),
+        n(0),
         m('0.00'),
         n(0),
       ],
@@ -70,6 +79,8 @@ describe('salesTable', () => {
         n(75),
         n(300),
         m('4321.50'),
+        n(3),
+        m('100.00'),
         n(12),
       ],
     ]);
@@ -109,7 +120,7 @@ describe('salesTable', () => {
       ),
     };
     const rows = salesTable(report, 'admin2', 'America/New_York').rows;
-    expect(rows[0][8]).toEqual(n(3));
+    expect(rows[0][10]).toEqual(n(3));
     expect(rows[0]).toHaveLength(table.columns.length);
   });
 });

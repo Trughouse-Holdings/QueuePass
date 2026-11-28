@@ -126,6 +126,9 @@ export function Reports({ username }: { username?: string }): React.ReactElement
                   <th>Date</th>
                   <th>Sold</th>
                   <th className="num-head">Revenue</th>
+                  {/* Spec 041 FR-020 (R8): part of the sold and revenue figures. */}
+                  <th className="num-head">Pass tickets</th>
+                  <th className="num-head">Pass revenue</th>
                   <th className="num-head">Checked in</th>
                 </tr>
               </thead>
@@ -150,6 +153,8 @@ export function Reports({ username }: { username?: string }): React.ReactElement
                         <Meter value={pct} label={`${pct}% sold`} />
                       </td>
                       <td className="price num">{usd(e.revenue)}</td>
+                      <td className="cell-num num">{(e.passTicketsSold ?? 0).toLocaleString()}</td>
+                      <td className="price num">{usd(e.passRevenue ?? '0.00')}</td>
                       <td className="cell-num num">
                         <span>{e.checkedIn.toLocaleString()}</span>
                         {/* Spec 032 FR-011: the kept count, and when the details were removed. */}
@@ -166,6 +171,23 @@ export function Reports({ username }: { username?: string }): React.ReactElement
                   );
                 })}
               </tbody>
+              {/* Spec 041 FR-020: the totals, pass figures included, under the events. */}
+              <tfoot>
+                <tr>
+                  <th scope="row" className="cell-strong">
+                    Total
+                  </th>
+                  <td />
+                  <td />
+                  <td className="cell-num">
+                    {`${totals.ticketsSold.toLocaleString()} of ${totals.ticketCapacity.toLocaleString()}`}
+                  </td>
+                  <td className="price num">{usd(totals.revenue)}</td>
+                  <td className="cell-num num">{(totals.passTicketsSold ?? 0).toLocaleString()}</td>
+                  <td className="price num">{usd(totals.passRevenue ?? '0.00')}</td>
+                  <td className="cell-num num">{totals.checkedIn.toLocaleString()}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}

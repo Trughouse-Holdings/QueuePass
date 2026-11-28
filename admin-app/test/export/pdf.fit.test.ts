@@ -52,6 +52,12 @@ const WIDEST: Order = {
   holderName: 'Maximilian Featherstonehaugh-Wolfeschlegelsteinhausen',
   tierName: 'General admission',
   unitPrice: '9999.99',
+  // Spec 041 (R8, review S8): a Season name of up to 100 characters wraps in the Pass column.
+  seasonPass: {
+    id: 'p1',
+    seasonId: 's1',
+    seasonName: 'Louisville Cardinals Basketball 2026–27 Season Tickets, Lower Bowl and Upper Bowl',
+  },
   tickets: [
     {
       id: 'w1',
@@ -82,7 +88,14 @@ describe('the PDF table fits the page', () => {
     const log = vi.spyOn(console, 'log');
     const report = {
       ...EXPORT_REPORT,
-      totals: { ...EXPORT_REPORT.totals, revenue: '99999999.99', ticketCapacity: 9_999_999 },
+      totals: {
+        ...EXPORT_REPORT.totals,
+        revenue: '99999999.99',
+        ticketCapacity: 9_999_999,
+        // Spec 041 (R8): the two pass columns, at their widest.
+        passTicketsSold: 9_999_999,
+        passRevenue: '99999999.99',
+      },
     };
     await toPdf(salesTable(report, 'admin1', 'UTC'), loadFontsFromDisk);
     expect(log).not.toHaveBeenCalledWith(expect.stringMatching(/could not fit/));

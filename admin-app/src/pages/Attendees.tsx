@@ -164,6 +164,8 @@ export function Attendees({ username }: { username?: string }): React.ReactEleme
                   <th>Tickets</th>
                   <th>Total</th>
                   <th>Status</th>
+                  {/* Spec 041 FR-020 (R8): the Season of an order bought on a pass. */}
+                  <th>Pass</th>
                   <th>Ticket codes</th>
                   <th>Check-in</th>
                 </tr>
@@ -187,6 +189,7 @@ export function Attendees({ username }: { username?: string }): React.ReactEleme
                       <td>
                         <span className="pill">{STATUS[o.status]}</span>
                       </td>
+                      <td>{o.seasonPass?.seasonName ?? ''}</td>
                       <td>
                         <ul>
                           {o.tickets.map((t) => (

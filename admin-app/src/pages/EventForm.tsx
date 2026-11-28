@@ -30,6 +30,7 @@ import { listLocations } from '../api/locations';
 import { getVenueLayout, getVenueLayoutSection, listVenueLayouts } from '../api/layouts';
 import { getAvailability, getEventSeating, getVenueMapSection } from '../api/seating';
 import { listTiers } from '../api/tiers';
+import { getSeason } from '../api/seasons';
 import { ApiError } from '../api/client';
 import {
   fieldErrors,
@@ -38,6 +39,7 @@ import {
   focusIdFor,
   lockReason,
   momentOf,
+  seasonLockReason,
   previewErrors,
   resolveField,
   seatTotals,
@@ -199,6 +201,9 @@ export function EventForm(): React.ReactElement {
   const [venues, setVenues] = useState<Location[]>([]);
   /** Spec 020 (review round 1, S1): the edited event's own venue, as the event carries it. */
   const [eventVenue, setEventVenue] = useState<Location | null>(null);
+  // Spec 041 FR-019: the Season the event is in, and whether it holds the venue and seating (not
+  // cancelled, FR-007), read from the Season itself.
+  const [season, setSeason] = useState<{ id: string; name: string; locks: boolean } | null>(null);
   const [name, setName] = useState('');
   const [locationId, setLocationId] = useState('');
   // Spec 036 FR-017 (#160): a new event opens on today's next whole hour, 4 hours long, in the
@@ -347,6 +352,13 @@ export function EventForm(): React.ReactElement {
         setName(e.name);
         setLocationId(e.locationId);
         setEventVenue(e.location ?? null);
+        const ref = e.season ?? null;
+        setSeason(ref ? { ...ref, locks: true } : null);
+        if (ref) {
+          getSeason(ref.id)
+            .then((s) => setSeason({ ...ref, locks: s.status !== 'CANCELLED' }))
+            .catch(() => undefined);
+        }
         // Spec 020 FR-017 (research R13): the venue's local times, and for a repeated local time
         // the occurrence the stored instant is.
         const zone = e.location?.timeZone ?? DEFAULT_TIME_ZONE;
@@ -809,6 +821,9 @@ export function EventForm(): React.ReactElement {
     }
   }
 
+  /** Spec 041 FR-007, FR-019: why the venue and seating can't change while in a Season. */
+  const seasonLock = season?.locks ? seasonLockReason(season.name) : null;
+
   // Spec 035 FR-010, FR-019: a refusal that names a field is placed on create and on edit.
   const placed = fieldErrors(error);
   useEffect(() => {
@@ -1227,6 +1242,11 @@ export function EventForm(): React.ReactElement {
         <form className="form" onSubmit={handleSubmit}>
           <fieldset className="field">
             <legend>Venue and times</legend>
+            {season && (
+              <p className="note" data-testid="in-season">
+                In season: <Link to={`/seasons/${season.id}`}>{season.name}</Link>
+              </p>
+            )}
             <div className="field">
               <label htmlFor="name">Event name</label>
               <input
@@ -1248,6 +1268,7 @@ export function EventForm(): React.ReactElement {
               <select
                 id="locationId"
                 value={locationId}
+                disabled={seasonLock !== null}
                 onBlur={() => mark('locationId')}
                 onChange={(e) => {
                   clearServer();
@@ -1286,6 +1307,7 @@ export function EventForm(): React.ReactElement {
                   </option>
                 ))}
               </select>
+              {seasonLock && <span className="field__hint">{seasonLock}</span>}
               {hint('locationId-error', fieldHint('locationId'))}
             </div>
 
@@ -1449,7 +1471,8 @@ export function EventForm(): React.ReactElement {
                   taken={taken}
                   counts={counts}
                   lockedReason={
-                    sold.eventSold > 0 ? (seated ? lockReason.layout : lockReason.seating) : null
+                    seasonLock ??
+                    (sold.eventSold > 0 ? (seated ? lockReason.layout : lockReason.seating) : null)
                   }
                   pricesFrom={pricesFrom}
                   onLayout={(layoutId) => {
