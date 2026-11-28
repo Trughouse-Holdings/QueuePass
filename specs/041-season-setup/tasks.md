@@ -66,7 +66,8 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
   layout or general admission, scheduled, not started), publish readiness (at least 2 events not
   cancelled; every level of the layout priced; at least one name priced; each priced name on every
   event), each returning the field path the contract names (`eventIds.<i>`, `prices.<levelId>`,
-  `prices.<tierName>`, R4)
+  `prices.<i>` for a sent entry, R4 and review M5; implementation note: this task said
+  `prices.<tierName>`, which R4 and the contract replaced)
 - [X] T007 `backend/src/seasons/season-rules.ts` to pass T006 (pure functions, no Prisma)
 - [X] T008 `backend/src/seasons/dto/season-input.dto.ts` (class-validator, as `SeasonInput`:
   `name` 1–100, `sport` a `Sport` or null, `team` 1–100 or null, `locationId` uuid, `layoutId` uuid
