@@ -813,10 +813,10 @@ fn epoch() -> DateTime<Utc> {
     DateTime::UNIX_EPOCH
 }
 
-/// Every heading of `t`'s PDF, and with `cells` every body cell too, reads whole: wrapped at
-/// spaces only, no word cut inside (spec 041: the narrower attendee columns still hold their
-/// headings, and the sample's "Confirmed", "Refunded" and Season names).
-fn assert_no_word_cut(t: &ExportTable, cells: bool) {
+/// Every heading of `t`'s PDF, and every body cell of the columns `cells` names (all of them
+/// with `None`), reads whole: wrapped at spaces only, no word cut inside (spec 041: the attendee
+/// columns' widths keep their headings, the statuses and the seat labels whole).
+fn assert_no_word_cut(t: &ExportTable, cells: Option<&[&str]>) {
     let layout = pdf_layout(t);
     let p = pdf(t);
     let all: String = (1..=p.pages() as u32)
@@ -824,11 +824,13 @@ fn assert_no_word_cut(t: &ExportTable, cells: bool) {
         .collect::<Vec<_>>()
         .join(" ");
     let all = squash(&all);
-    let body: Vec<&String> = if cells {
-        layout.body.iter().flatten().collect()
-    } else {
-        Vec::new()
-    };
+    let checked: Vec<usize> = (0..t.columns.len())
+        .filter(|&i| cells.is_none_or(|names| names.contains(&t.columns[i].header.as_str())))
+        .collect();
+    let body = layout
+        .body
+        .iter()
+        .flat_map(|row| checked.iter().map(move |&i| &row[i]));
     for cell in layout.head.iter().chain(body) {
         assert!(all.contains(&squash(cell)), "cut: {cell:?}");
     }
@@ -846,7 +848,7 @@ fn the_pdf_table_fits_the_page_for_the_sample_attendee_list() {
     );
     let width: f32 = column_widths(&t).iter().sum();
     assert!(width <= PRINTABLE + 0.01, "{width}");
-    assert_no_word_cut(&t, true);
+    assert_no_word_cut(&t, None);
 }
 
 #[test]
@@ -864,8 +866,9 @@ fn the_pdf_table_fits_the_page_for_the_widest_attendee_values() {
     assert!(text.contains("and Upper Bowl"), "{text}");
     let pass = t.columns.iter().position(|c| c.header == "Pass").unwrap();
     assert!(widths[pass] < 100.0, "{widths:?}");
-    // The widest values squeeze every text column to its minimum: the headings stay whole.
-    assert_no_word_cut(&t, false);
+    // The widest values squeeze every text column to its minimum: the headings, the statuses
+    // ("Confirmed", "Refunded") and the seat labels stay whole; the deliberately long names wrap.
+    assert_no_word_cut(&t, Some(&["Seat", "Ticket status", "Order status"]));
 }
 
 #[test]
