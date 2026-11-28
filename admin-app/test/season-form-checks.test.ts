@@ -3,6 +3,7 @@ import { ApiError } from '../src/api/client';
 import {
   SEASON_MSG,
   byName,
+  missingRequired,
   sameDraft,
   fieldOrder,
   firstErrorKey,
@@ -379,6 +380,31 @@ describe('pickableEvents (R11)', () => {
       keep: ['old'],
     });
     expect(picked.map((e) => e.id).sort()).toEqual(['ga', 'old']);
+  });
+});
+
+describe('missingRequired (#189)', () => {
+  it('names the required fields with no value yet: name, venue, layout, pass sales end', () => {
+    const empty = draft({ name: ' ', locationId: '', layout: '', salesEndAt: '' });
+    expect([...missingRequired(empty, ctx())].sort()).toEqual(
+      ['layoutId', 'locationId', 'name', 'salesEndAt'].sort(),
+    );
+    expect(missingRequired(draft(), ctx()).size).toBe(0);
+  });
+
+  it('leaves out what is a message, not a missing value: both-or-neither, limits, times', () => {
+    const d = draft({ team: '', maxPassesPerCustomer: '11', salesEndAt: '2026-12-10T19:30' });
+    expect(missingRequired(d, ctx()).size).toBe(0);
+  });
+
+  it('asks for every level price only when the Season must stay sellable', () => {
+    const one = draft({ prices: { [LOWER]: '100.00', [UPPER]: ' ' } });
+    expect(missingRequired(one, ctx()).size).toBe(0);
+    expect([...missingRequired(one, ctx({ complete: true }))]).toEqual([`prices.${UPPER}`]);
+    const ga = draft({ layout: 'ga', prices: {} });
+    expect(
+      missingRequired(ga, ctx({ levels: [], tierNames: ['General'], complete: true })).size,
+    ).toBe(0);
   });
 });
 

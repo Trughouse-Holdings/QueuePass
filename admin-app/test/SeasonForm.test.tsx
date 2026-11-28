@@ -97,6 +97,60 @@ describe('New season (041 US1, T019)', () => {
     expect(screen.queryByLabelText('Lower pass price')).not.toBeInTheDocument();
   });
 
+  it('outlines each required field with no value in red at once, with a Required tag for the eye (#189)', async () => {
+    stubApi(BASE);
+    const user = userEvent.setup();
+    renderAt('/seasons/new');
+    const name = await screen.findByLabelText('Season name');
+    for (const label of [
+      'Season name',
+      'Venue',
+      'Layout',
+      'Pass sales end date',
+      'Pass sales end time',
+    ]) {
+      expect(screen.getByLabelText(label)).toHaveClass('input--needed');
+    }
+    // Not required: no outline until a rule is broken, and then a message, not "Required".
+    for (const label of ['Sport', 'Team', 'Passes per customer', 'Single tickets on sale date']) {
+      expect(screen.getByLabelText(label)).not.toHaveClass('input--needed');
+    }
+    // Its message waits for Save; the outline is not a refusal.
+    expect(screen.queryByTestId('name-error')).toBeNull();
+    expect(name).not.toHaveAttribute('aria-invalid');
+    // "Required" is drawn by the shared theme and is not part of the field's accessible name.
+    expect(screen.getByRole('textbox', { name: 'Season name' })).toBe(name);
+
+    await user.type(name, 'Spring Hoops');
+    expect(name).not.toHaveClass('input--needed');
+    await chooseVenueAndLayout(user, 'Basketball');
+    expect(screen.getByLabelText('Venue')).not.toHaveClass('input--needed');
+    expect(screen.getByLabelText('Layout')).not.toHaveClass('input--needed');
+    await user.type(screen.getByLabelText('Pass sales end date'), '2026-10-10');
+    expect(screen.getByLabelText('Pass sales end date')).toHaveClass('input--needed');
+    await user.type(screen.getByLabelText('Pass sales end time'), '18:00');
+    expect(screen.getByLabelText('Pass sales end date')).not.toHaveClass('input--needed');
+    expect(screen.getByLabelText('Pass sales end time')).not.toHaveClass('input--needed');
+
+    // A sport with no team is a message on Save, not a missing value.
+    await user.selectOptions(screen.getByLabelText('Sport'), 'BASKETBALL');
+    expect(screen.getByLabelText('Team')).not.toHaveClass('input--needed');
+    // A draft's price boxes are not required.
+    expect(await screen.findByLabelText('Lower pass price')).not.toHaveClass('input--needed');
+  });
+
+  it('outlines an empty level price of a Season on sale (#189)', async () => {
+    stubApi({ ...BASE, [`GET /seasons/${SEASON_ID}`]: json(season({ status: 'ON_SALE' })) });
+    const user = userEvent.setup();
+    renderAt(`/seasons/${SEASON_ID}`);
+    const upper = await screen.findByLabelText('Upper pass price');
+    await waitFor(() => expect(upper).toHaveValue('60.00'));
+    expect(upper).not.toHaveClass('input--needed');
+    await user.clear(upper);
+    expect(upper).toHaveClass('input--needed');
+    expect(screen.getByLabelText('Lower pass price')).not.toHaveClass('input--needed');
+  });
+
   it('marks each missing field beside it, focuses the first, and sends nothing', async () => {
     const api = stubApi(BASE);
     const user = userEvent.setup();

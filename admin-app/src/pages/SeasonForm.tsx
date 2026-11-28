@@ -34,6 +34,7 @@ import {
   byName,
   firstErrorKey,
   focusIdFor,
+  missingRequired,
   pickableEvents,
   placeSeasonErrors,
   previewSeason,
@@ -246,6 +247,7 @@ function SeasonPage({ id }: { id: string | undefined }): React.ReactElement {
     complete: season?.status === 'ON_SALE',
   };
   const keys = priceKeys(draft, ctx);
+  const readOnlySeason = season?.status === 'CANCELLED';
   const previews = previewSeason(draft, ctx);
   const placed = placeSeasonErrors(
     error,
@@ -261,8 +263,14 @@ function SeasonPage({ id }: { id: string | undefined }): React.ReactElement {
       : submitted && previews.has(key)
         ? [previews.get(key)!]
         : []);
-  const invalid = (key: string, testId = `${key}-error`) =>
+  // #189: a required field with no value yet is outlined in red at once; its message waits.
+  const missing = readOnlySeason ? new Set<string>() : missingRequired(draft, ctx);
+  const described = (key: string, testId = `${key}-error`) =>
     hintFor(key).length > 0 ? { 'aria-invalid': true as const, 'aria-describedby': testId } : {};
+  const invalid = (key: string, testId = `${key}-error`) => ({
+    ...(missing.has(key) ? { className: 'input--needed' } : {}),
+    ...described(key, testId),
+  });
   const hint = (testId: string, messages: string[]) =>
     messages.length > 0 ? (
       <span className="field__hint" role="alert" id={testId} data-testid={testId}>
@@ -624,7 +632,7 @@ function SeasonPage({ id }: { id: string | undefined }): React.ReactElement {
             </div>
           </fieldset>
 
-          <fieldset className="field" id="eventIds" tabIndex={-1} {...invalid('eventIds')}>
+          <fieldset className="field" id="eventIds" tabIndex={-1} {...described('eventIds')}>
             <legend>Events</legend>
             {/* Review 041: the reason beside the locked boxes too (FR-017). */}
             {passesLocked && !readOnly && (
@@ -664,7 +672,7 @@ function SeasonPage({ id }: { id: string | undefined }): React.ReactElement {
             {hint('eventIds-error', hintFor('eventIds'))}
           </fieldset>
 
-          <fieldset className="field" id="prices" tabIndex={-1} {...invalid('prices')}>
+          <fieldset className="field" id="prices" tabIndex={-1} {...described('prices')}>
             <legend>Pass prices</legend>
             {keys.length === 0 ? (
               <p className="note">
