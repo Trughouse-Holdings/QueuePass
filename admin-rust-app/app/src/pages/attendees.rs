@@ -19,7 +19,7 @@ use admin_rust_core::{
     format::removed_note,
     money::usd,
     pages::attendees_reports::{
-        attendee_summary, check_in_cell, export_input, order_levels, tier_cell,
+        attendee_summary, check_in_cell, export_input, order_levels, pass_cell, tier_cell,
     },
     time::{instant_from_ms, to_iso_string},
 };
@@ -226,6 +226,8 @@ fn page(data: Arc<Loaded>, kept: RwSignal<Option<u64>>, auth: Auth) -> impl Into
                             <th>"Tickets"</th>
                             <th>"Total"</th>
                             <th>"Status"</th>
+                            // Spec 041 FR-020 (R8): the Season of an order bought on a pass.
+                            <th>"Pass"</th>
                             <th>"Ticket codes"</th>
                             <th>"Check-in"</th>
                         </tr>
@@ -308,6 +310,7 @@ fn order_row(o: &Order, export: &rows::Order, removed: bool, venue_zone: &str) -
             <td>
                 <span class="pill">{status}</span>
             </td>
+            <td>{pass_cell(o.season_pass.as_ref().map(|p| p.season_name.as_str()))}</td>
             <td>
                 <ul>{tickets}</ul>
             </td>

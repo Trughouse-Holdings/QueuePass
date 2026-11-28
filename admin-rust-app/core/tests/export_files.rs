@@ -15,8 +15,8 @@ use admin_rust_core::export::pdf::{
     PDF_TYPE, REPLACED_NOTE, column_widths, font_glyphs, pdf_layout, pdf_text, to_pdf,
 };
 use admin_rust_core::export::rows::{
-    Event, Order, OrderStatus, SalesReport, SoldSeat, Ticket, TicketStatus, attendee_table,
-    sales_table,
+    Event, Order, OrderSeasonPass, OrderStatus, SalesReport, SoldSeat, Ticket, TicketStatus,
+    attendee_table, sales_table,
 };
 use admin_rust_core::export::table::{Cell, CellKind, ExportColumn, ExportTable};
 use admin_rust_core::export::xlsx::{XLSX_TYPE, to_xlsx};
@@ -260,9 +260,10 @@ fn a_seated_attendee_list_has_its_level_and_each_tickets_price_in_the_csv() {
     let seated: Vec<&&str> = lines.iter().filter(|l| l.contains("EEEEEEEE")).collect();
     assert_eq!(seated.len(), 2);
     assert!(seated[0].contains(",,Courtside,\"Section 115, Row D, Seat 2\",BCDFGHJK2345,"));
-    assert!(seated[0].contains(",Confirmed,95.00,EEEEEEEE,"));
+    // Spec 041 (R8): Pass, empty for a single-ticket order, after Order status.
+    assert!(seated[0].contains(",Confirmed,,95.00,EEEEEEEE,"));
     assert!(seated[1].contains(",,Lower sideline,\"Section 115, Row F, Seat 7\",LMNPQRST6789,"));
-    assert!(seated[1].contains(",Confirmed,60.00,EEEEEEEE,"));
+    assert!(seated[1].contains(",Confirmed,,60.00,EEEEEEEE,"));
 }
 
 #[test]
@@ -272,7 +273,8 @@ fn a_seated_sales_report_keeps_one_csv_row_per_event() {
     let lines: Vec<&str> = text.trim().split("\r\n").collect();
     assert_eq!(lines.len(), 1 + 3 + 1);
     assert!(lines[1].starts_with("Season Opener,Yum Center,"));
-    assert!(lines[1].contains(",25,100,1321.50,12,"));
+    // Spec 041 (R8): no pass figures in this report: none.
+    assert!(lines[1].contains(",25,100,1321.50,0,0.00,12,"));
     assert!(!text.contains("Courtside"));
 }
 
@@ -627,6 +629,13 @@ fn squash(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// Text without its whitespace: a word wider than its column is broken inside (as jsPDF breaks
+/// it), so a cell is found by its characters in order (spec 041's narrower attendee columns:
+/// "Ticket status", "Confirmed").
+fn bare(s: &str) -> String {
+    s.split_whitespace().collect()
+}
+
 #[test]
 fn pdf_is_letter_landscape_with_noto_sans_embedded_one_page_for_10_rows() {
     assert_eq!(PDF_TYPE, "application/pdf");
@@ -704,7 +713,7 @@ fn every_pdf_has_the_title_the_notes_the_header_and_every_row() {
         for n in 1..=pages as u32 {
             let text = squash(&p.page_text(n));
             assert!(
-                text.contains(&squash(&layout.head.join(" "))),
+                bare(&text).contains(&bare(&layout.head.join(" "))),
                 "{name} page {n}"
             );
             assert!(
@@ -712,14 +721,14 @@ fn every_pdf_has_the_title_the_notes_the_header_and_every_row() {
                 "{name} page {n}"
             );
         }
-        let all = squash(&all);
+        let all = bare(&all);
         for row in &layout.body {
             let cells: Vec<&str> = row
                 .iter()
                 .map(String::as_str)
                 .filter(|c| !c.is_empty())
                 .collect();
-            let row = squash(&cells.join(" "));
+            let row = bare(&cells.join(" "));
             assert!(all.contains(&row), "{name}: {row}");
         }
     }
@@ -784,6 +793,12 @@ fn widest() -> Order {
         holder_name: Some("Maximilian Featherstonehaugh-Wolfeschlegelsteinhausen".into()),
         tier_name: Some("General admission".into()),
         unit_price: Some("9999.99".into()),
+        // Spec 041 (R8, review S8): a Season name of up to 100 characters wraps in the Pass column.
+        season_pass: Some(OrderSeasonPass {
+            season_name:
+                "Louisville Cardinals Basketball 2026–27 Season Tickets, Lower Bowl and Upper Bowl"
+                    .into(),
+        }),
         tickets: vec![Ticket {
             code: "WWWWMMMMWWWW".into(),
             status: TicketStatus::Valid,
@@ -829,7 +844,12 @@ fn the_pdf_table_fits_the_page_for_the_widest_attendee_values() {
     let width: f32 = widths.iter().sum();
     assert!(width <= PRINTABLE + 0.01, "{width}: {widths:?}");
     let p = pdf(&t);
-    assert!(squash(&p.page_text(1)).contains("WWWWMMMMWWWW"));
+    let text = squash(&p.page_text(1));
+    assert!(text.contains("WWWWMMMMWWWW"));
+    // The Season's name wraps in its column, every word kept.
+    assert!(text.contains("and Upper Bowl"), "{text}");
+    let pass = t.columns.iter().position(|c| c.header == "Pass").unwrap();
+    assert!(widths[pass] < 100.0, "{widths:?}");
 }
 
 #[test]
@@ -840,12 +860,17 @@ fn the_pdf_table_fits_the_page_for_a_sales_report_with_a_large_revenue() {
     };
     report.totals.revenue = "99999999.99".into();
     report.totals.ticket_capacity = 9_999_999;
+    // Spec 041 (R8): the two pass columns, at their widest.
+    report.totals.pass_tickets_sold = 9_999_998;
+    report.totals.pass_revenue = "99999998.99".into();
     let t = sales_table(&report, "admin1", "UTC");
     let width: f32 = column_widths(&t).iter().sum();
     assert!(width <= PRINTABLE + 0.01, "{width}");
     let p = pdf(&t);
     assert!(p.page_text(1).contains("$99,999,999.99"));
     assert!(p.page_text(1).contains("9,999,999"));
+    assert!(p.page_text(1).contains("$99,999,998.99"));
+    assert!(p.page_text(1).contains("9,999,998"));
 }
 
 // ------------------------------------------------------------------ size.test.ts (X5)
@@ -880,6 +905,7 @@ fn orders_of(tickets: usize) -> Vec<Order> {
                 OrderStatus::Confirmed
             },
             created_at: at,
+            season_pass: None,
             tickets: (0..quantity)
                 .map(|k| Ticket {
                     code: format!("ABCD{:08}", n + k),

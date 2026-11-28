@@ -62,6 +62,16 @@ pub struct Order {
     pub status: OrderStatus,
     pub created_at: DateTime<Utc>,
     pub tickets: Vec<Ticket>,
+    /// Spec 041 (R8): the Season pass the order was bought on; `None` for single tickets.
+    #[serde(default)]
+    pub season_pass: Option<OrderSeasonPass>,
+}
+
+/// Spec 041: an order's Season pass, as far as the attendee list reads it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderSeasonPass {
+    pub season_name: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -112,6 +122,16 @@ pub struct SalesTotals {
     pub tickets_sold: i64,
     pub checked_in: i64,
     pub revenue: String,
+    /// Spec 041 (R8): of the tickets sold and the revenue, what came from Season passes; an
+    /// older Backend's report without them reads as none (`?? 0`).
+    #[serde(default)]
+    pub pass_tickets_sold: i64,
+    #[serde(default = "zero_money")]
+    pub pass_revenue: String,
+}
+
+fn zero_money() -> String {
+    "0.00".into()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -127,6 +147,11 @@ pub struct EventSales {
     pub tickets_sold: i64,
     pub checked_in: i64,
     pub revenue: String,
+    /// Spec 041 (R8), as [`SalesTotals::pass_tickets_sold`].
+    #[serde(default)]
+    pub pass_tickets_sold: i64,
+    #[serde(default = "zero_money")]
+    pub pass_revenue: String,
 }
 
 fn text(value: impl Into<String>) -> Cell {
@@ -149,18 +174,21 @@ fn order_status(status: OrderStatus) -> &'static str {
 
 /// Spec 038: Price level's room comes from Name on tickets, Tier and Seat, so the PDF's minimum
 /// widths still fit letter landscape with the widest values (023 review round 1; `pdf.fit`).
+/// Spec 041 (R8): Pass's room comes from Name on tickets, Seat and the two status columns.
 fn attendee_columns() -> Vec<ExportColumn> {
     vec![
         ExportColumn::new("Order placed", CellKind::DateTime, 18),
         ExportColumn::new("Customer", CellKind::Text, 17),
-        ExportColumn::new("Name on tickets", CellKind::Text, 20),
+        ExportColumn::new("Name on tickets", CellKind::Text, 18),
         ExportColumn::new("Tier", CellKind::Text, 15),
         ExportColumn::new("Price level", CellKind::Text, 14),
-        ExportColumn::new("Seat", CellKind::Text, 20),
+        ExportColumn::new("Seat", CellKind::Text, 18),
         ExportColumn::new("Ticket code", CellKind::Text, 15).nowrap(),
-        ExportColumn::new("Ticket status", CellKind::Text, 13),
+        ExportColumn::new("Ticket status", CellKind::Text, 10),
         ExportColumn::new("Checked in", CellKind::DateTime, 18),
-        ExportColumn::new("Order status", CellKind::Text, 17),
+        ExportColumn::new("Order status", CellKind::Text, 12),
+        // Spec 041 (R8): the Season of an order bought on a pass; wraps like the other text columns.
+        ExportColumn::new("Pass", CellKind::Text, 12),
         ExportColumn::new("Price", CellKind::Money, 11),
         ExportColumn::new("Order", CellKind::Text, 11).nowrap(),
     ]
@@ -228,6 +256,11 @@ pub fn attendee_table(
                         t.checked_in_at
                     }),
                     text(order_status(o.status)),
+                    text(
+                        o.season_pass
+                            .as_ref()
+                            .map_or("", |p| p.season_name.as_str()),
+                    ),
                     // Spec 038 FR-030: each ticket's own price.
                     Cell::Money(t.price.clone()),
                     text(o.id.chars().take(8).collect::<String>().to_uppercase()),
@@ -262,6 +295,9 @@ fn sales_columns() -> Vec<ExportColumn> {
         ExportColumn::new("Tickets sold", CellKind::Count, 13),
         ExportColumn::new("Ticket capacity", CellKind::Count, 15),
         ExportColumn::new("Revenue", CellKind::Money, 14),
+        // Spec 041 (R8): of the tickets sold and the revenue, what came from Season passes.
+        ExportColumn::new("Pass tickets", CellKind::Count, 12),
+        ExportColumn::new("Pass revenue", CellKind::Money, 14),
         ExportColumn::new("Checked in", CellKind::Count, 12),
     ]
 }
@@ -288,6 +324,8 @@ pub fn sales_table(report: &SalesReport, made_by: &str, admin_zone: &str) -> Exp
                 Cell::Count(e.tickets_sold),
                 Cell::Count(e.ticket_capacity),
                 Cell::Money(e.revenue.clone()),
+                Cell::Count(e.pass_tickets_sold),
+                Cell::Money(e.pass_revenue.clone()),
                 Cell::Count(e.checked_in),
             ]
         })
@@ -310,6 +348,8 @@ pub fn sales_table(report: &SalesReport, made_by: &str, admin_zone: &str) -> Exp
         Cell::Count(totals.tickets_sold),
         Cell::Count(totals.ticket_capacity),
         Cell::Money(totals.revenue.clone()),
+        Cell::Count(totals.pass_tickets_sold),
+        Cell::Money(totals.pass_revenue.clone()),
         Cell::Count(totals.checked_in),
     ]);
 

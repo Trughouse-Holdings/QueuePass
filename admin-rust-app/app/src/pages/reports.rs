@@ -18,7 +18,9 @@ use admin_rust_core::{
     },
     format::removed_short,
     money::usd,
-    pages::attendees_reports::{count, export_input, meter_fill_style, share, sold_cell},
+    pages::attendees_reports::{
+        count, export_input, meter_fill_style, share, sold_cell, total_sold_cell,
+    },
     time::{format_event_date, format_viewer_time, to_iso_string},
 };
 use leptos::{prelude::*, task::spawn_local};
@@ -110,6 +112,11 @@ fn page(data: Arc<(SalesReport, rows::SalesReport)>, auth: Auth) -> impl IntoVie
         view! { <p class="note">"No events yet."</p> }.into_any()
     } else {
         let rows_view = report.events.iter().map(event_row).collect_view();
+        let total_sold = total_sold_cell(totals.tickets_sold, totals.ticket_capacity);
+        let total_revenue = usd(&totals.revenue);
+        let total_pass_tickets = count(totals.pass_tickets_sold);
+        let total_pass_revenue = usd(&totals.pass_revenue);
+        let total_checked_in = count(totals.checked_in);
         view! {
             <div class="table-wrap">
                 <table>
@@ -120,10 +127,26 @@ fn page(data: Arc<(SalesReport, rows::SalesReport)>, auth: Auth) -> impl IntoVie
                             <th>"Date"</th>
                             <th>"Sold"</th>
                             <th class="num-head">"Revenue"</th>
+                            // Spec 041 FR-020 (R8): part of the sold and revenue figures.
+                            <th class="num-head">"Pass tickets"</th>
+                            <th class="num-head">"Pass revenue"</th>
                             <th class="num-head">"Checked in"</th>
                         </tr>
                     </thead>
                     <tbody>{rows_view}</tbody>
+                    // Spec 041 FR-020: the totals, pass figures included, under the events.
+                    <tfoot>
+                        <tr>
+                            <th scope="row" class="cell-strong">"Total"</th>
+                            <td></td>
+                            <td></td>
+                            <td class="cell-num">{total_sold}</td>
+                            <td class="price num">{total_revenue}</td>
+                            <td class="cell-num num">{total_pass_tickets}</td>
+                            <td class="price num">{total_pass_revenue}</td>
+                            <td class="cell-num num">{total_checked_in}</td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         }
@@ -221,6 +244,8 @@ fn event_row(e: &EventSales) -> impl IntoView {
                 <Meter value=pct label=format!("{pct}% sold")/>
             </td>
             <td class="price num">{usd(&e.revenue)}</td>
+            <td class="cell-num num">{count(e.pass_tickets_sold)}</td>
+            <td class="price num">{usd(&e.pass_revenue)}</td>
             <td class="cell-num num">
                 <span>{count(e.checked_in)}</span>
                 {removed}

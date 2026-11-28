@@ -89,7 +89,12 @@
           "price": "45.00",
           "levelName": null
         }
-      ]
+      ],
+      "seasonPass": {
+        "id": "p1",
+        "seasonId": "s1",
+        "seasonName": "Louisville Hoops"
+      }
     },
     {
       "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
@@ -241,7 +246,12 @@
           "price": "45.00",
           "levelName": null
         }
-      ]
+      ],
+      "seasonPass": {
+        "id": "p2",
+        "seasonId": "s2",
+        "seasonName": "=Hoops, \"Lower\" 2026–27"
+      }
     },
     {
       "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",

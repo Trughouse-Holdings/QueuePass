@@ -1,5 +1,5 @@
-﻿Event,Venue,Starts,Time zone,Status,Tickets sold,Ticket capacity,Revenue,Checked in,Exported at
-Season Opener,Yum Center,2026-11-01 18:00,Eastern Time,Scheduled,25,100,1321.50,12,2026-10-30T14:05:00-04:00
-Winter Gala,Freedom Hall,2026-12-20 15:00,Pacific Time,Scheduled,50,200,3000.00,0,2026-10-30T14:05:00-04:00
-Rained Out,Freedom Hall,2026-10-20 19:00,Eastern Time,Cancelled,0,50,0.00,0,2026-10-30T14:05:00-04:00
-Total,,,,2 scheduled events,75,300,4321.50,12,2026-10-30T14:05:00-04:00
+﻿Event,Venue,Starts,Time zone,Status,Tickets sold,Ticket capacity,Revenue,Pass tickets,Pass revenue,Checked in,Exported at
+Season Opener,Yum Center,2026-11-01 18:00,Eastern Time,Scheduled,25,100,1321.50,3,100.00,12,2026-10-30T14:05:00-04:00
+Winter Gala,Freedom Hall,2026-12-20 15:00,Pacific Time,Scheduled,50,200,3000.00,0,0.00,0,2026-10-30T14:05:00-04:00
+Rained Out,Freedom Hall,2026-10-20 19:00,Eastern Time,Cancelled,0,50,0.00,0,0.00,0,2026-10-30T14:05:00-04:00
+Total,,,,2 scheduled events,75,300,4321.50,3,100.00,12,2026-10-30T14:05:00-04:00

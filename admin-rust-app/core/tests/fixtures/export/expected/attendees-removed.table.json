@@ -12,14 +12,15 @@
   "columns": [
     { "header": "Order placed", "kind": "dateTime", "width": 18 },
     { "header": "Customer", "kind": "text", "width": 17 },
-    { "header": "Name on tickets", "kind": "text", "width": 20 },
+    { "header": "Name on tickets", "kind": "text", "width": 18 },
     { "header": "Tier", "kind": "text", "width": 15 },
     { "header": "Price level", "kind": "text", "width": 14 },
-    { "header": "Seat", "kind": "text", "width": 20 },
+    { "header": "Seat", "kind": "text", "width": 18 },
     { "header": "Ticket code", "kind": "text", "width": 15, "nowrap": true },
-    { "header": "Ticket status", "kind": "text", "width": 13 },
+    { "header": "Ticket status", "kind": "text", "width": 10 },
     { "header": "Checked in", "kind": "dateTime", "width": 18 },
-    { "header": "Order status", "kind": "text", "width": 17 },
+    { "header": "Order status", "kind": "text", "width": 12 },
+    { "header": "Pass", "kind": "text", "width": 12 },
     { "header": "Price", "kind": "money", "width": 11 },
     { "header": "Order", "kind": "text", "width": 11, "nowrap": true }
   ],
@@ -35,6 +36,7 @@
       { "kind": "text", "value": "Valid" },
       { "kind": "dateTime", "value": "" },
       { "kind": "text", "value": "Confirmed" },
+      { "kind": "text", "value": "" },
       { "kind": "money", "value": "84.30" },
       { "kind": "text", "value": "AAAAAAAA" }
     ],
@@ -49,6 +51,7 @@
       { "kind": "text", "value": "Valid" },
       { "kind": "dateTime", "value": "" },
       { "kind": "text", "value": "Confirmed" },
+      { "kind": "text", "value": "" },
       { "kind": "money", "value": "84.30" },
       { "kind": "text", "value": "AAAAAAAA" }
     ],
@@ -63,6 +66,7 @@
       { "kind": "text", "value": "Valid" },
       { "kind": "dateTime", "value": "" },
       { "kind": "text", "value": "Confirmed" },
+      { "kind": "text", "value": "" },
       { "kind": "money", "value": "45.00" },
       { "kind": "text", "value": "BBBBBBBB" }
     ],
@@ -77,6 +81,7 @@
       { "kind": "text", "value": "Valid" },
       { "kind": "dateTime", "value": "" },
       { "kind": "text", "value": "Confirmed" },
+      { "kind": "text", "value": "" },
       { "kind": "money", "value": "60.00" },
       { "kind": "text", "value": "CCCCCCCC" }
     ],
@@ -91,6 +96,7 @@
       { "kind": "text", "value": "Void" },
       { "kind": "dateTime", "value": "" },
       { "kind": "text", "value": "Refunded" },
+      { "kind": "text", "value": "" },
       { "kind": "money", "value": "45.00" },
       { "kind": "text", "value": "DDDDDDDD" }
     ],
@@ -105,6 +111,7 @@
       { "kind": "text", "value": "Valid" },
       { "kind": "dateTime", "value": "" },
       { "kind": "text", "value": "Confirmed" },
+      { "kind": "text", "value": "" },
       { "kind": "money", "value": "95.00" },
       { "kind": "text", "value": "EEEEEEEE" }
     ],
@@ -119,6 +126,7 @@
       { "kind": "text", "value": "Valid" },
       { "kind": "dateTime", "value": "" },
       { "kind": "text", "value": "Confirmed" },
+      { "kind": "text", "value": "" },
       { "kind": "money", "value": "60.00" },
       { "kind": "text", "value": "EEEEEEEE" }
     ]
