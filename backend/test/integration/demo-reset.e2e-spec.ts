@@ -636,7 +636,12 @@ describe('Demo reset (spec 029)', () => {
           `${n(before.EventLevelPrice, 'level price')}, ` +
           `${n(before.EventOffSaleSeat, 'off-sale seat')}, ${n(before.EventImage, 'image')}, ` +
           `${n(before.Order, 'order')}, ${n(before.Ticket, 'ticket')} (1 checked in), ` +
-          `${n(before.SeatReservation, 'seat reservation')}, ${n(before.SeatHold, 'seat hold')}.`,
+          `${n(before.SeatReservation, 'seat reservation')}, ${n(before.SeatHold, 'seat hold')}, ` +
+          // Spec 041: the Season tables, after the seat holds.
+          `${n(before.Season, 'season')}, ${n(before.SeasonEvent, 'season event')}, ` +
+          `${n(before.SeasonPrice, 'season price')}, ` +
+          `${before.SeasonPass} season pass${before.SeasonPass === 1 ? '' : 'es'}, ` +
+          `${n(before.SeasonPassHold, 'season pass hold')}.`,
       );
       expect(out).toContain(
         `Created: 3 venues, 4 layouts, 9 events (Holiday Gala cancelled, Season Opener over), ` +
