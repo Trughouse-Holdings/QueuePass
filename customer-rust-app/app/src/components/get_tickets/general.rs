@@ -155,7 +155,8 @@ impl Form {
                 .waits
                 .with(|w| w.get(RateLimitedAction::Buy).is_some())
         };
-        let can = move || {
+        // Confirm order's rule, with the name's validity given.
+        let can_with = move |name_ok: bool| {
             let price = form.price();
             let left_now = panel.availability.with(|a| {
                 a.as_ref()
@@ -165,9 +166,15 @@ impl Form {
                 price.as_deref(),
                 left_now,
                 form.count(),
-                form.name.with(NameField::valid),
+                name_ok,
                 panel.buy.with(|b| b.choosing()),
             )
+        };
+        let can = move || can_with(form.name.with(NameField::valid));
+        // Issue #182: why Confirm order is disabled, when the name is all that is missing.
+        let needs_name = move || {
+            let usable = can_with(true);
+            form.name.with(|n| n.needed_to_buy(usable, waiting()))
         };
 
         let choice = move || {
@@ -269,10 +276,15 @@ impl Form {
                 class="btn btn--primary"
                 disabled=move || !can()
                 aria-disabled=move || waiting().then_some("true")
+                aria-describedby=move || needs_name().map(|_| "confirm-needs-name")
                 on:click=move |_| form.confirm()
             >
                 {move || panel.buy.with(|b| confirm_button_text(b.phase()))}
             </button>
+            {move || {
+                needs_name()
+                    .map(|text| view! { <p id="confirm-needs-name" class="note">{text}</p> })
+            }}
         }
     }
 }

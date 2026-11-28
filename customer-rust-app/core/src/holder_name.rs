@@ -16,6 +16,21 @@ pub const HOLDER_NAME_MAX: usize = 100;
 pub const HOLDER_NAME_HINT: &str =
     "Your name, as on the photo ID you'll show at the gate. It goes on every ticket.";
 
+/// Issue #182: the line beside Buy tickets (Cart) and Confirm order (general admission) while the
+/// name is all that keeps the button disabled. Ports `NAME_NEEDED_TO_BUY` from
+/// `packages/shared/src/holder-name.ts`, word for word (spec 040; a test reads that file).
+pub const NAME_NEEDED_TO_BUY: &str = "Enter the name on tickets above to buy.";
+
+/// Ports `nameNeededToBuy`: the line, only while the name is not valid, the button would be usable
+/// with one, and no BUY wait shows its own message.
+pub fn name_needed_to_buy(
+    name_ok: bool,
+    usable_with_name: bool,
+    waiting: bool,
+) -> Option<&'static str> {
+    (!name_ok && usable_with_name && !waiting).then_some(NAME_NEEDED_TO_BUY)
+}
+
 /// Ports `HolderNameProblem`, in the order the checks run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HolderNameProblem {
@@ -110,6 +125,12 @@ impl HolderNameField {
     /// Spec 017 FR-001: no order without a valid name.
     pub fn valid(&self) -> bool {
         holder_name_problem(&self.value).is_none()
+    }
+
+    /// Issue #182: [`NAME_NEEDED_TO_BUY`] beside a button that is usable with a valid name, while
+    /// this one is not and no BUY wait shows.
+    pub fn needed_to_buy(&self, usable_with_name: bool, waiting: bool) -> Option<&'static str> {
+        name_needed_to_buy(self.valid(), usable_with_name, waiting)
     }
 
     /// The message shown under the field, once it was left.

@@ -196,6 +196,103 @@ describe('the cart (FR-012, FR-013)', () => {
   });
 });
 
+// Issue #182: a Buy tickets disabled only for the name says so beside it, linked to it.
+const NEEDS_NAME = 'Enter the name on tickets above to buy.';
+
+describe('the name on tickets is needed to buy (#182)', () => {
+  it('says so beside a disabled Buy tickets, and stops once a name is typed; then Buy buys', async () => {
+    let mine: Reservation[] = [reservation('e1', [5, 6])];
+    const { calls } = stubApi(
+      routes({
+        'GET /me/reservations': () => json(mine),
+        'POST /events/e1/orders': () => {
+          mine = [];
+          return json(placed, 201);
+        },
+      }),
+    );
+    renderCustomer({ at: '/cart' });
+    const box = await entry('Early Show');
+    const buy = within(box).getByRole('button', { name: 'Buy tickets' });
+
+    expect(buy).toBeDisabled();
+    const hint = within(box).getByText(NEEDS_NAME);
+    expect(hint).toHaveClass('note');
+    expect(buy).toHaveAccessibleDescription(NEEDS_NAME);
+
+    await typeHolderName();
+    expect(within(box).queryByText(NEEDS_NAME)).toBeNull();
+    expect(buy).toBeEnabled();
+    expect(buy).not.toHaveAttribute('aria-describedby');
+
+    fireEvent.click(buy);
+    await screen.findByRole('region', { name: 'Order confirmed' });
+    expect(calls.filter((c) => c.path === '/events/e1/orders')).toHaveLength(1);
+  });
+
+  it('says so for a name that is not valid too, and again once the name is cleared', async () => {
+    stubApi(routes({ 'GET /me/reservations': json([reservation('e1', [5])]) }));
+    renderCustomer({ at: '/cart' });
+    const box = await entry('Early Show');
+    const name = screen.getByRole('textbox', { name: 'Name on tickets' });
+
+    fireEvent.change(name, { target: { value: '1234' } });
+    expect(within(box).getByText(NEEDS_NAME)).toBeInTheDocument();
+    fireEvent.change(name, { target: { value: 'Jordan Lee' } });
+    expect(within(box).queryByText(NEEDS_NAME)).toBeNull();
+    fireEvent.change(name, { target: { value: '' } });
+    expect(within(box).getByText(NEEDS_NAME)).toBeInTheDocument();
+  });
+
+  it('gives each entry its own line, linked to its own Buy tickets', async () => {
+    stubApi(
+      routes({
+        'GET /me/reservations': json([reservation('e2', [3]), reservation('e1', [5])]),
+      }),
+    );
+    renderCustomer({ at: '/cart' });
+    const late = await entry('Late Play');
+    const early = await entry('Early Show');
+
+    const ids = [late, early].map((box) => {
+      const buy = within(box).getByRole('button', { name: 'Buy tickets' });
+      expect(buy).toHaveAccessibleDescription(NEEDS_NAME);
+      return buy.getAttribute('aria-describedby');
+    });
+    expect(new Set(ids).size).toBe(2);
+    expect(screen.getAllByText(NEEDS_NAME)).toHaveLength(2);
+  });
+
+  it('says nothing while the buy wait shows its own message', async () => {
+    fakeClock();
+    stubApi(
+      routes({
+        'GET /me/reservations': json([reservation('e1', [5])]),
+        'POST /events/e1/orders': json(
+          {
+            error: {
+              code: 'RATE_LIMITED',
+              message: 'Too many tries. You can try again in 2 seconds.',
+              details: { action: 'BUY', retryAfterSeconds: 2 },
+            },
+          },
+          429,
+        ),
+      }),
+    );
+    renderCustomer({ at: '/cart' });
+    const box = await entry('Early Show');
+    await typeHolderName();
+    fireEvent.click(within(box).getByRole('button', { name: 'Buy tickets' }));
+    await within(box).findByText('Too many tries. You can try again in 2 seconds.');
+
+    await typeHolderName('');
+    expect(within(box).queryByText(NEEDS_NAME)).toBeNull();
+    await advance(2_000);
+    expect(within(box).getByText(NEEDS_NAME)).toBeInTheDocument();
+  });
+});
+
 describe('buying (FR-014; US1-4)', () => {
   it('sends one order for that reservation and shows the confirmation; the entry leaves the cart', async () => {
     let mine: Reservation[] = [reservation('e1', [5, 6])];
