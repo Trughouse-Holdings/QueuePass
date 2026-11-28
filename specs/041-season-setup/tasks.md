@@ -269,8 +269,15 @@ season-fixtures.ts`) wherever a sold pass is needed; never 042's checkout.
   lines (SC-007); record the coverage figures for the PR
 - [ ] T049 Running-system gate (Constitution gate 5): fresh clone, `docker compose up --build`,
   seed succeeds the first time, demo reset, sign in, use and log out of every front end
-- [ ] T050 Browser walk of quickstart S0–S11 by Nate in both Admin apps (S5 with a pass inserted by
+  - **2026-11-28, partly**: a fresh clone of `041-season-setup-impl` at 0b71feb (`.env` from
+    `.env.example`) came up with `docker compose up --build`; the seed succeeded the first time; all
+    eight services healthy; the demo reset created the Basketball Season on sale. Sign-in, use and
+    sign-out of both Admin apps by Nate (T050); the other front ends by the browser test run.
+- [X] T050 Browser walk of quickstart S0–S11 by Nate in both Admin apps (S5 with a pass inserted by
   the fixture or SQL until 042 merges); record it here with the date
+  - **Done 2026-11-28**: Nate walked the Seasons pages in both Admin apps (React on 5173, Rust on
+    5176) on the fresh-clone stack at 0b71feb with the demo reset loaded, and confirmed: "ok i tested
+    it, it works". Selling a pass (S5's locked events, S9's non-zero figures) waits for 042.
 - [X] T051 Independent review by a Claude session that did not write the implementation; fix the
   findings; record the review and any finding left open in the impl PR description
   - **Done 2026-11-28** (one round): no blocking, 5 should-fix, 9 minor. Fixed in 3f2a104, ab0c0d1,
